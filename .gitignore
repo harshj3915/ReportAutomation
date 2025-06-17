@@ -1,0 +1,50 @@
+# Ignore test folders and data directories
+test/
+test2/
+ComparisionData/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+.venv/
+env/
+venv/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+~$*
+
+# Testing Files
+comparisionAppend.ipynb
+comparisionAutomation.ipynb
+pivot_table_with_slicer.ipynb
+productWiseWeekly.ipynb
+
+# Excel files
+*.xlsx
+*.xls
+*.xlsm
+*.xlsb
+

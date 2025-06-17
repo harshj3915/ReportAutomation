@@ -3,13 +3,148 @@ import dash
 from dash import dcc, html, dash_table, Input, Output, callback
 import plotly.express as px
 from datetime import datetime, date
+import os
+import glob
+import calendar
 
+# Automated Path Configuration Functions
+def get_month_year_combinations(latest_month_year):
+    """
+    Get the latest month, last month, and last year combinations
+    """
+    # Parse the latest month-year
+    month_name, year = latest_month_year.split('-')
+    year = int(year)
+    month_num = list(calendar.month_name).index(month_name)
+    
+    # Calculate last month
+    if month_num == 1:  # January
+        last_month_num = 12
+        last_month_year_num = year - 1
+    else:
+        last_month_num = month_num - 1
+        last_month_year_num = year
+    
+    # Calculate last year same month
+    last_year_month_num = month_num
+    last_year_year_num = year - 1
+    
+    # Convert back to names
+    last_month_name = calendar.month_name[last_month_num]
+    last_year_month_name = calendar.month_name[last_year_month_num]
+    
+    return {
+        'latest': {'month': month_name, 'year': year, 'folder': f"{month_name}-{year}"},
+        'last_month': {'month': last_month_name, 'year': last_month_year_num, 'folder': f"{last_month_name}-{last_month_year_num}"},
+        'last_year': {'month': last_year_month_name, 'year': last_year_year_num, 'folder': f"{last_year_month_name}-{last_year_year_num}"}
+    }
 
-sheet_info = [
-    ('test2/may25-final.xlsx', 'Sheet1', 'May 25'),   # Last month raw sheet
-    ('test2/June24_Invoice.xlsx', 'Raw data June 24', 'June 24'),        # Last year raw sheet
-    ('test2/June25.xlsx', 'Sheet1', 'June 25')                # Latest month raw sheet
-]
+def find_file_by_keyword(folder_path, keyword):
+    """
+    Find a file in the folder that contains the keyword in its name
+    """
+    if not os.path.exists(folder_path):
+        return None
+    
+    files = os.listdir(folder_path)
+    for file in files:
+        if keyword.lower() in file.lower() and file.endswith('.xlsx'):
+            return os.path.join(folder_path, file)
+    return None
+
+def setup_automated_paths(latest_month_year, dsr_folder_path=None):
+    """
+    Setup all paths automatically based on the latest month-year input
+    
+    Parameters:
+    latest_month_year: str - Format: "June-2025"
+    dsr_folder_path: str - Full path to DSR folder (e.g., "C:/Users/Username/Documents/DSR")
+                           If None, defaults to "DSR" in current directory
+    
+    Returns:
+    dict containing all the required paths and configurations
+    """
+    
+    # Get month-year combinations
+    dates = get_month_year_combinations(latest_month_year)
+    
+    # Base DSR folder path - use provided path or default to current directory
+    if dsr_folder_path is None:
+        dsr_path = os.path.join(os.getcwd(), "DSR")
+    else:
+        dsr_path = os.path.abspath(dsr_folder_path)
+        
+    print(f"🔍 Looking for DSR folder at: {dsr_path}")
+    
+    # Prepare results
+    sheet_info = []
+    
+    # Process each period (last_month, last_year, latest)
+    periods = ['last_month', 'last_year', 'latest']
+    display_names = [
+        f"{dates['last_month']['month']} {dates['last_month']['year'] % 100}",  # May 25
+        f"{dates['last_year']['month']} {dates['last_year']['year'] % 100}",   # June 24
+        f"{dates['latest']['month']} {dates['latest']['year'] % 100}"          # June 25
+    ]
+    
+    for i, period in enumerate(periods):
+        period_data = dates[period]
+        folder_path = os.path.join(dsr_path, period_data['folder'])
+        
+        # Find invoice file
+        invoice_file = find_file_by_keyword(folder_path, 'invoice')
+        if invoice_file:
+            # Get the first sheet (since invoice files have only one sheet)
+            try:
+                xl = pd.ExcelFile(invoice_file)
+                sheet_name = xl.sheet_names[0] if xl.sheet_names else 'Sheet1'
+            except:
+                sheet_name = 'Sheet1'
+            
+            # Make path relative to current working directory
+            rel_path = os.path.relpath(invoice_file, os.getcwd())
+            sheet_info.append((rel_path, sheet_name, display_names[i]))
+    
+    return {
+        'sheet_info': sheet_info,
+        'dates': dates
+    }
+
+# AUTOMATED PATH CONFIGURATION
+print("Dashboard.py - Automated Path Configuration")
+print("==========================================")
+
+# Try automated configuration first
+try:
+    # You can modify these lines to directly set the month and DSR path
+    # For dashboard.py, we'll use defaults or you can uncomment the input lines below
+    
+    # latest_month_year = input("Enter the latest month-year (e.g., 'June-2025'): ").strip()
+    # dsr_path = input("Enter full path to DSR folder (or press Enter for default './DSR'): ").strip() or None
+    
+    latest_month_year = "June-2025"  # Default for dashboard - change this as needed
+    dsr_path = None  # Default - change this to your DSR folder path if needed
+    # Example: dsr_path = r"C:\Users\91843\Documents\MyData\DSR"
+    
+    # Setup all paths automatically
+    config = setup_automated_paths(latest_month_year, dsr_path)
+    sheet_info = config['sheet_info']
+    
+    print(f"✅ Configuration successful for {latest_month_year}!")
+    print(f"📁 Found {len(sheet_info)} invoice files:")
+    for i, (path, sheet, display) in enumerate(sheet_info):
+        print(f"   {i+1}. {display}: {path} -> {sheet}")
+    
+    
+except Exception as e:
+    print(f"❌ Error in automated setup: {e}")
+    print("🔄 Falling back to manual configuration...")
+      # Fallback to manual configuration
+    sheet_info = [
+        ('test2/may25-final.xlsx', 'Sheet1', 'May 25'),   # Last month raw sheet
+        ('test2/June24_Invoice.xlsx', 'Raw data June 24', 'June 24'),        # Last year raw sheet
+        ('test2/June25.xlsx', 'Sheet1', 'June 25')                # Latest month raw sheet
+    ]
 
 # Read the session data with specific columns
 important_columns = [
@@ -360,6 +495,35 @@ def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, selected_w
         })
     
     return formatted_top_products
+
+# CONFIGURATION HELPER FUNCTION
+def update_dashboard_configuration(new_month_year, dsr_folder_path=None):
+    """
+    Update the dashboard configuration with a new month-year and DSR path
+    Call this function to change the data source month and/or DSR location
+    
+    Parameters:
+    new_month_year: str - Format: "June-2025"
+    dsr_folder_path: str - Full path to DSR folder (optional)
+    """
+    global sheet_info
+    
+    try:
+        config = setup_automated_paths(new_month_year, dsr_folder_path)
+        sheet_info = config['sheet_info']
+        
+        print(f"🔄 Dashboard updated for {new_month_year}!")
+        if dsr_folder_path:
+            print(f"📁 Using DSR folder: {dsr_folder_path}")
+        print(f"📁 Now using {len(sheet_info)} files:")
+        for i, (path, sheet, display) in enumerate(sheet_info):
+            print(f"   {i+1}. {display}: {path} -> {sheet}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error updating configuration: {e}")
+        return False
 
 # Define the app layout
 app.layout = html.Div([

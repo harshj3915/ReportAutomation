@@ -2,6 +2,7 @@
 test/
 test2/
 ComparisionData/
+DSR/
 
 # Python cache
 __pycache__/

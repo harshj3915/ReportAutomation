@@ -884,4 +884,4 @@ def update_tables(invoice_days, weeks, brands, idgs, types, selected_weekday):
 
 # Run the app
 if __name__ == '__main__':
-    app.run(debug=True, port=8050)
+    app.run(debug=False, port=8050)

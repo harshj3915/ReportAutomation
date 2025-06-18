@@ -122,8 +122,8 @@ try:
     # latest_month_year = input("Enter the latest month-year (e.g., 'June-2025'): ").strip()
     # dsr_path = input("Enter full path to DSR folder (or press Enter for default './DSR'): ").strip() or None
     
-    latest_month_year = "June-2025"  # Default for dashboard - change this as needed
-    dsr_path = None  # Default - change this to your DSR folder path if needed
+    latest_month_year = input("Enter the latest month-year (e.g., 'June-2025'): ")  # Default for dashboard - change this as needed
+    dsr_path = r'C:\Users\91843\Documents\VsCode Codes\ReportAutomation\test\DSR'  # Default - change this to your DSR folder path if needed
     # Example: dsr_path = r"C:\Users\91843\Documents\MyData\DSR"
     
     # Setup all paths automatically

@@ -9,6 +9,21 @@ import glob
 import calendar
 
 # Automated Path Configuration Functions
+def get_first_day_of_month(month_year):
+    """
+    Determine the first day of the month given a month-year string (e.g., 'June-2025')
+    Returns the weekday number (0 = Monday, 6 = Sunday)
+    """
+    month_name, year = month_year.split('-')
+    month_name = month_name.capitalize()
+    year = int(year)
+    month_num = list(calendar.month_name).index(month_name)
+    
+    # Get the weekday of the first day of the month (0 = Monday, 6 = Sunday)
+    first_weekday = calendar.weekday(year, month_num, 1)
+    
+    return first_weekday
+
 def get_month_year_combinations(latest_month_year):
     """
     Get the latest month, last month, and last year combinations
@@ -122,8 +137,12 @@ try:
     
     # latest_month_year = input("Enter the latest month-year (e.g., 'June-2025'): ").strip()
     # dsr_path = input("Enter full path to DSR folder (or press Enter for default './DSR'): ").strip() or None
-    
     latest_month_year = input("Enter the latest month-year (e.g., 'June-2025'): ")  # Default for dashboard - change this as needed
+    
+    # Automatically determine the first day of the month
+    first_day_weekday = get_first_day_of_month(latest_month_year)
+    print(f"📅 First day of {latest_month_year} is: {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][first_day_weekday]}")
+    
     # Load configuration from config.json
     try:
         with open('config.json', 'r') as f:
@@ -147,7 +166,7 @@ try:
 except Exception as e:
     print(f"❌ Error in automated setup: {e}")
     print("🔄 Falling back to manual configuration...")
-      # Fallback to manual configuration
+    # Fallback to manual configuration
     sheet_info = [
         ('test2/may25-final.xlsx', 'Sheet1', 'May 25'),   # Last month raw sheet
         ('test2/June24_Invoice.xlsx', 'Raw data June 24', 'June 24'),        # Last year raw sheet
@@ -216,18 +235,44 @@ brand_options = [{'label': brand, 'value': brand} for brand in unique_brands]
 idg_options = [{'label': idg, 'value': idg} for idg in unique_idgs]
 type_options = [{'label': type_val, 'value': type_val} for type_val in unique_types]
 
-# Weekday options for first day of month selection
-weekday_options = [
-    {'label': 'Monday', 'value': 0},
-    {'label': 'Tuesday', 'value': 1},
-    {'label': 'Wednesday', 'value': 2},
-    {'label': 'Thursday', 'value': 3},
-    {'label': 'Friday', 'value': 4},
-    {'label': 'Saturday', 'value': 5},
-    {'label': 'Sunday', 'value': 6}
-]
-
 # Week calculation function
+def get_week_date_ranges(first_day_of_month_weekday, month_year):
+    """
+    Calculate week date ranges for the month
+    Returns a dictionary with week numbers and their date ranges
+    """
+    month_name, year = month_year.split('-')
+    month_num = list(calendar.month_name).index(month_name.capitalize())
+    year = int(year)
+    
+    # Get number of days in the month
+    days_in_month = calendar.monthrange(year, month_num)[1]
+    
+    week_ranges = {}
+    current_week = 1
+    
+    # Calculate days in week 1
+    if first_day_of_month_weekday == 6:  # If 1st is Sunday
+        days_in_week1 = 1
+    else:  # If 1st is Monday-Saturday
+        days_in_week1 = 7 - first_day_of_month_weekday
+    
+    # Week 1 range
+    week_ranges[1] = (1, min(days_in_week1, days_in_month))
+    
+    # Calculate remaining weeks
+    current_day = days_in_week1 + 1
+    current_week = 2
+    
+    while current_day <= days_in_month:
+        week_start = current_day
+        week_end = min(current_day + 6, days_in_month)
+        week_ranges[current_week] = (week_start, week_end)
+        current_day = week_end + 1
+        current_week += 1
+    
+    return week_ranges
+
 def calculate_week_number(day, first_day_of_month_weekday):
     """
     Calculate week number based on first day of month logic
@@ -259,11 +304,11 @@ def add_week_calculation(dfs, selected_weekday):
         # Calculate week for each row based on selected weekday
         df['Week'] = df['InvoiceDay'].apply(lambda x: calculate_week_number(x, selected_weekday) if pd.notna(x) else None)
 
-# Initialize with Monday as default (weekday 0)
-add_week_calculation(dfs, 0)
+# Initialize with automatically determined first day
+add_week_calculation(dfs, first_day_weekday)
 
 # Get unique weeks for filter (will be updated dynamically)
-def get_week_options(dfs):
+def get_week_options(dfs, first_day_weekday, month_year):
     all_weeks = []
     for df in dfs:
         if 'Week' in df.columns:
@@ -271,9 +316,24 @@ def get_week_options(dfs):
             all_weeks.extend(weeks)
     
     unique_weeks = sorted(list(set(all_weeks))) if all_weeks else []
-    return [{'label': f'Week {int(week)}', 'value': week} for week in unique_weeks if not pd.isna(week)]
+    
+    # Get week date ranges
+    week_ranges = get_week_date_ranges(first_day_weekday, month_year)
+    
+    # Create options with date ranges
+    week_options = []
+    for week in unique_weeks:
+        if not pd.isna(week) and int(week) in week_ranges:
+            start_day, end_day = week_ranges[int(week)]
+            if start_day == end_day:
+                label = f'Week {int(week)} ({start_day})'
+            else:
+                label = f'Week {int(week)} ({start_day}-{end_day})'
+            week_options.append({'label': label, 'value': week})
+    
+    return week_options
 
-week_options = get_week_options(dfs)
+week_options = get_week_options(dfs, first_day_weekday, latest_month_year)
 
 # Function to filter and aggregate data
 def filter_and_aggregate_data(df, invoice_days, weeks, brands, idgs, types):
@@ -304,10 +364,7 @@ def filter_and_aggregate_data(df, invoice_days, weeks, brands, idgs, types):
     return df_display.to_dict('records')
 
 # Function to calculate summary metrics
-def calculate_summary_metrics(dfs, invoice_days, weeks, brands, idgs, types, selected_weekday):
-    if selected_weekday is not None:
-        add_week_calculation(dfs, selected_weekday)
-    
+def calculate_summary_metrics(dfs, invoice_days, weeks, brands, idgs, types):
     summaries = []
     for i, df in enumerate(dfs):
         filtered_df = df.copy()
@@ -393,10 +450,7 @@ def create_comparison_analysis(summaries):
     return comparison_data
 
 # Function to get top performers across all periods
-def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, selected_weekday, top_n=10):
-    if selected_weekday is not None:
-        add_week_calculation(dfs, selected_weekday)
-    
+def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, top_n=10):
     # Get top 10 products from the latest month (index 2)
     latest_df = dfs[2].copy()
     
@@ -493,8 +547,8 @@ def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, selected_w
         formatted_top_products.append({
             'Rank': i + 1,
             'Product': product_name[:50] + '...' if len(product_name) > 50 else product_name,
-            'Total Revenue': f"AED {total_revenue:,.2f}",
-            'Total Qty': f"{total_qty:,.0f}",
+            # 'Total Revenue': f"AED {total_revenue:,.2f}",
+            # 'Total Qty': f"{total_qty:,.0f}",
             f"{sheet_info[0][2]} Revenue": f"AED {product_data[f'{sheet_info[0][2]}_Revenue']:,.2f}",
             f"{sheet_info[1][2]} Revenue": f"AED {product_data[f'{sheet_info[1][2]}_Revenue']:,.2f}",
             f"{sheet_info[2][2]} Revenue": f"AED {product_data[f'{sheet_info[2][2]}_Revenue']:,.2f}",
@@ -535,23 +589,17 @@ def update_dashboard_configuration(new_month_year, dsr_folder_path=None):
 
 # Define the app layout
 app.layout = html.Div([
-    html.H1("Product Analysis Dashboard", style={'textAlign': 'center', 'marginBottom': 30}),    # Universal Filters Section
+    html.H1("Product Analysis Dashboard", style={'textAlign': 'center', 'marginBottom': 30}),
+    
+    # Universal Filters Section
     html.Div([
         html.H3("Universal Filters", style={'textAlign': 'center', 'marginBottom': 20}),
         
-        # First Day of Month Selector
+        # Display automatically determined first day of month
         html.Div([
-            html.Label("First Day of Month:", style={'fontWeight': 'bold', 'marginBottom': 5}),
-            dcc.Dropdown(
-                id='first-day-selector',
-                options=weekday_options,
-                value=0,  # Default to Monday
-                placeholder="Select what day the 1st falls on",
-                style={'marginBottom': 15}
-            ),
-            html.P("Select what day of the week the 1st of the month falls on to calculate weeks correctly.", 
-                   style={'fontSize': '12px', 'color': 'gray', 'marginBottom': 20})
-        ], style={'textAlign': 'center', 'marginBottom': 20}),
+            html.P(f"📅 First day of {latest_month_year}: {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][first_day_weekday]} (automatically detected)", 
+                   style={'textAlign': 'center', 'fontWeight': 'bold', 'color': '#007bff', 'marginBottom': 20})
+        ]),
         
         # Filter Selection Note
         html.Div([
@@ -614,9 +662,9 @@ app.layout = html.Div([
                     style={'marginBottom': 10}
                 )
             ], style={'width': '19%', 'display': 'inline-block'})
-            
-        ], style={'display': 'flex', 'justifyContent': 'space-between', 'marginBottom': 20})
-          ], style={'backgroundColor': '#f8f9fa', 'padding': '20px', 'borderRadius': '10px', 'marginBottom': 30}),
+              ], style={'display': 'flex', 'justifyContent': 'space-between', 'marginBottom': 20})
+        
+    ], style={'backgroundColor': '#f8f9fa', 'padding': '20px', 'borderRadius': '10px', 'marginBottom': 30}),
     
     # Top Performers Section
     html.Div([
@@ -790,8 +838,7 @@ app.layout = html.Div([
                 filter_action="native"
             )
         ], style={'width': '32%', 'display': 'inline-block'})
-        
-    ], style={'display': 'flex', 'justifyContent': 'space-between'}),
+          ], style={'display': 'flex', 'justifyContent': 'space-between'}),
     
     html.Div([
         html.Hr(),
@@ -816,18 +863,7 @@ def toggle_filter_exclusivity(invoice_days, weeks):
     
     return day_disabled, week_disabled
 
-# Callback for updating week options when first day of month changes
-@app.callback(
-    Output('week-filter', 'options'),
-    [Input('first-day-selector', 'value')]
-)
-def update_week_options(selected_weekday):
-    if selected_weekday is not None:
-        # Recalculate weeks based on new first day selection
-        add_week_calculation(dfs, selected_weekday)
-        # Get updated week options
-        return get_week_options(dfs)
-    return week_options
+# Removed callback for updating week options - now automatically determined
 
 # Removed summary cards callback - section no longer needed
 
@@ -841,17 +877,16 @@ def update_week_options(selected_weekday):
      Input('week-filter', 'value'),
      Input('brand-filter', 'value'),
      Input('idg-filter', 'value'),
-     Input('type-filter', 'value'),
-     Input('first-day-selector', 'value')]
+     Input('type-filter', 'value')]
 )
-def update_top_performers_table(invoice_days, weeks, brands, idgs, types, selected_weekday):
-    top_performers_data = get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, selected_weekday)
+def update_top_performers_table(invoice_days, weeks, brands, idgs, types):
+    top_performers_data = get_top_performers(dfs, invoice_days, weeks, brands, idgs, types)
     
     columns = [
         {'name': 'Rank', 'id': 'Rank', 'type': 'numeric'},
         {'name': 'Product', 'id': 'Product', 'type': 'text'},
-        {'name': 'Total Revenue', 'id': 'Total Revenue', 'type': 'text'},
-        {'name': 'Total Qty', 'id': 'Total Qty', 'type': 'text'},
+        # {'name': 'Total Revenue', 'id': 'Total Revenue', 'type': 'text'},
+        # {'name': 'Total Qty', 'id': 'Total Qty', 'type': 'text'},
         {'name': f'{sheet_info[0][2]} Revenue', 'id': f'{sheet_info[0][2]} Revenue', 'type': 'text'},
         {'name': f'{sheet_info[1][2]} Revenue', 'id': f'{sheet_info[1][2]} Revenue', 'type': 'text'},
         {'name': f'{sheet_info[2][2]} Revenue', 'id': f'{sheet_info[2][2]} Revenue', 'type': 'text'},
@@ -870,14 +905,9 @@ def update_top_performers_table(invoice_days, weeks, brands, idgs, types, select
      Input('week-filter', 'value'),
      Input('brand-filter', 'value'),
      Input('idg-filter', 'value'),
-     Input('type-filter', 'value'),
-     Input('first-day-selector', 'value')]
+     Input('type-filter', 'value')]
 )
-def update_tables(invoice_days, weeks, brands, idgs, types, selected_weekday):
-    # Ensure week calculation is up to date
-    if selected_weekday is not None:
-        add_week_calculation(dfs, selected_weekday)
-    
+def update_tables(invoice_days, weeks, brands, idgs, types):
     # Enforce mutual exclusivity: if both are selected, prioritize the one that was selected first
     if invoice_days and weeks:
         # Clear weeks if both are selected (prioritize invoice days)

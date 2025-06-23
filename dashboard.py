@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 import dash
 from dash import dcc, html, dash_table, Input, Output, callback
@@ -123,9 +124,16 @@ try:
     # dsr_path = input("Enter full path to DSR folder (or press Enter for default './DSR'): ").strip() or None
     
     latest_month_year = input("Enter the latest month-year (e.g., 'June-2025'): ")  # Default for dashboard - change this as needed
-    dsr_path = r'C:\Users\91843\Documents\VsCode Codes\ReportAutomation\test\DSR'  # Default - change this to your DSR folder path if needed
-    # Example: dsr_path = r"C:\Users\91843\Documents\MyData\DSR"
-    
+    # Load configuration from config.json
+    try:
+        with open('config.json', 'r') as f:
+            config_data = json.load(f)
+        dsr_path = config_data['paths']['dsr_folder_path']
+    except Exception as e:
+        print(f"❌ Error loading config.json: {e}")
+        print("Using default DSR folder path...")
+        dsr_path = "C:\\Users\\91843\\Documents\\VsCode Codes\\ReportAutomation\\test\\DSR"
+        
     # Setup all paths automatically
     config = setup_automated_paths(latest_month_year, dsr_path)
     sheet_info = config['sheet_info']

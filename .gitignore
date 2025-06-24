@@ -4,7 +4,8 @@ test2/
 ComparisionData/
 DSR/
 q/
-
+cache/
+flowcharts/
 
 # Python cache
 __pycache__/

@@ -361,6 +361,11 @@ def filter_and_aggregate_data(df, invoice_days, weeks, brands, idgs, types):
     df_display['Amount Invoiced W.O. VAT'] = df_display['Amount Invoiced W.O. VAT'].round(2)
     df_display['QtyOrdered'] = df_display['QtyOrdered'].round(0)
     
+    # For display in the table, truncate long product descriptions
+    df_display['ProductDesc_Display'] = df_display['ProductDesc'].apply(
+        lambda x: (x[:50] + '...') if len(x) > 50 else x
+    )
+    
     return df_display.to_dict('records')
 
 # Function to calculate summary metrics
@@ -589,7 +594,7 @@ def update_dashboard_configuration(new_month_year, dsr_folder_path=None):
 
 # Define the app layout
 app.layout = html.Div([
-    html.H1("Product Analysis Dashboard", style={'textAlign': 'center', 'marginBottom': 30}),
+    html.H1("Product Analysis Dashboard", style={'textAlign': 'center', 'marginBottom': 30, 'fontFamily': 'Arial, sans-serif'}),
     
     # Universal Filters Section
     html.Div([
@@ -614,10 +619,10 @@ app.layout = html.Div([
                     id='invoice-day-filter',
                     options=day_options,
                     multi=True,
-                    placeholder="Select Invoice Days (e.g., 1st, 3rd-13th)",
+                    placeholder="Select Invoice Days",
                     style={'marginBottom': 10}
                 )
-            ], style={'width': '19%', 'display': 'inline-block', 'marginRight': '1%'}),
+            ], style={'width': '19%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '150px'}),
             
             html.Div([
                 html.Label("Week:", style={'fontWeight': 'bold', 'marginBottom': 5}),
@@ -628,7 +633,7 @@ app.layout = html.Div([
                     placeholder="Select Weeks",
                     style={'marginBottom': 10}
                 )
-            ], style={'width': '19%', 'display': 'inline-block', 'marginRight': '1%'}),
+            ], style={'width': '19%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '150px'}),
             
             html.Div([
                 html.Label("Brand:", style={'fontWeight': 'bold', 'marginBottom': 5}),
@@ -639,7 +644,7 @@ app.layout = html.Div([
                     placeholder="Select Brands",
                     style={'marginBottom': 10}
                 )
-            ], style={'width': '19%', 'display': 'inline-block', 'marginRight': '1%'}),
+            ], style={'width': '19%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '150px'}),
             
             html.Div([
                 html.Label("IDG:", style={'fontWeight': 'bold', 'marginBottom': 5}),
@@ -650,7 +655,7 @@ app.layout = html.Div([
                     placeholder="Select IDG",
                     style={'marginBottom': 10}
                 )
-            ], style={'width': '19%', 'display': 'inline-block', 'marginRight': '1%'}),
+            ], style={'width': '19%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '150px'}),
             
             html.Div([
                 html.Label("Type:", style={'fontWeight': 'bold', 'marginBottom': 5}),
@@ -661,12 +666,11 @@ app.layout = html.Div([
                     placeholder="Select Types",
                     style={'marginBottom': 10}
                 )
-            ], style={'width': '19%', 'display': 'inline-block'})
-              ], style={'display': 'flex', 'justifyContent': 'space-between', 'marginBottom': 20})
+            ], style={'width': '19%', 'display': 'inline-block', 'minWidth': '150px'})
+        ], style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'space-between', 'marginBottom': 20})
         
     ], style={'backgroundColor': '#f8f9fa', 'padding': '20px', 'borderRadius': '10px', 'marginBottom': 30}),
-    
-    # Top Performers Section
+      # Top Performers Section
     html.Div([
         html.H3(f"🏆 Top 10 Performers from {sheet_info[2][2]} (with data from all periods)", style={'textAlign': 'center', 'marginBottom': 20}),
         dash_table.DataTable(
@@ -675,8 +679,22 @@ app.layout = html.Div([
                 'textAlign': 'left',
                 'padding': '10px',
                 'fontFamily': 'Arial, sans-serif',
-                'fontSize': '12px'
+                'fontSize': '12px',
+                'overflow': 'hidden',
+                'textOverflow': 'ellipsis',
+                'maxWidth': 0,
             },
+            style_cell_conditional=[
+                {'if': {'column_id': 'Rank'}, 'width': '5%', 'textAlign': 'center'},
+                {'if': {'column_id': 'Product'}, 'width': '40%'},
+                {'if': {'column_id': f'{sheet_info[0][2]} Revenue'}, 'width': '12%'},
+                {'if': {'column_id': f'{sheet_info[1][2]} Revenue'}, 'width': '12%'},
+                {'if': {'column_id': f'{sheet_info[2][2]} Revenue'}, 'width': '12%'},
+                {'if': {'column_id': 'YoY Change %'}, 'width': '10%', 'textAlign': 'center'},
+                {'if': {'column_id': 'MoM Change %'}, 'width': '10%', 'textAlign': 'center'},
+            ],
+            tooltip_data=[],  # Will be populated in the callback
+            tooltip_duration=None,
             style_header={
                 'backgroundColor': 'rgb(255, 193, 7)',
                 'color': 'black',
@@ -728,24 +746,32 @@ app.layout = html.Div([
             page_size=10
         )
     ], style={'backgroundColor': '#ffffff', 'padding': '20px', 'borderRadius': '10px', 'marginBottom': 30, 'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}),
-    
-    # Tables Section - Side by Side
+      # Tables Section - Responsive Layout
     html.Div([
-        html.Div([
-            html.H4(f"{sheet_info[0][2]} - Product Analysis", style={'textAlign': 'center', 'marginBottom': 15}),
+        html.Div([            html.H4(f"{sheet_info[0][2]} - Product Analysis", style={'textAlign': 'center', 'marginBottom': 15}),
             dash_table.DataTable(
                 id='table-0',
                 columns=[
                     {'name': 'Product Description', 'id': 'ProductDesc', 'type': 'text'},
-                    {'name': 'Amount Invoiced (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.2f'}},
-                    {'name': 'Quantity Ordered', 'id': 'QtyOrdered', 'type': 'numeric', 'format': {'specifier': ',.0f'}}
+                    {'name': 'Amount (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.2f'}},
+                    {'name': 'Qty', 'id': 'QtyOrdered', 'type': 'numeric', 'format': {'specifier': ',.0f'}}
                 ],
                 style_cell={
                     'textAlign': 'left',
                     'padding': '8px',
                     'fontFamily': 'Arial, sans-serif',
-                    'fontSize': '12px'
+                    'fontSize': '12px',
+                    'overflow': 'hidden',
+                    'textOverflow': 'ellipsis',
+                    'maxWidth': 0,
                 },
+                style_cell_conditional=[
+                    {'if': {'column_id': 'ProductDesc'}, 'width': '60%'},
+                    {'if': {'column_id': 'Amount Invoiced W.O. VAT'}, 'width': '20%'},
+                    {'if': {'column_id': 'QtyOrdered'}, 'width': '20%'},
+                ],
+                tooltip_data=[],  # Will be populated in the callback
+                tooltip_duration=None,
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
                     'fontWeight': 'bold',
@@ -765,23 +791,32 @@ app.layout = html.Div([
                 sort_action="native",
                 filter_action="native"
             )
-        ], style={'width': '32%', 'display': 'inline-block', 'marginRight': '2%'}),
+        ], style={'width': '31%', 'display': 'inline-block', 'marginRight': '2%', 'minWidth': '300px'}),
         
-        html.Div([
-            html.H4(f"{sheet_info[1][2]} - Product Analysis", style={'textAlign': 'center', 'marginBottom': 15}),
+        html.Div([            html.H4(f"{sheet_info[1][2]} - Product Analysis", style={'textAlign': 'center', 'marginBottom': 15}),
             dash_table.DataTable(
                 id='table-1',
                 columns=[
                     {'name': 'Product Description', 'id': 'ProductDesc', 'type': 'text'},
-                    {'name': 'Amount Invoiced (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.2f'}},
-                    {'name': 'Quantity Ordered', 'id': 'QtyOrdered', 'type': 'numeric', 'format': {'specifier': ',.0f'}}
+                    {'name': 'Amount (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.2f'}},
+                    {'name': 'Qty', 'id': 'QtyOrdered', 'type': 'numeric', 'format': {'specifier': ',.0f'}}
                 ],
                 style_cell={
                     'textAlign': 'left',
                     'padding': '8px',
                     'fontFamily': 'Arial, sans-serif',
-                    'fontSize': '12px'
+                    'fontSize': '12px',
+                    'overflow': 'hidden',
+                    'textOverflow': 'ellipsis',
+                    'maxWidth': 0,
                 },
+                style_cell_conditional=[
+                    {'if': {'column_id': 'ProductDesc'}, 'width': '60%'},
+                    {'if': {'column_id': 'Amount Invoiced W.O. VAT'}, 'width': '20%'},
+                    {'if': {'column_id': 'QtyOrdered'}, 'width': '20%'},
+                ],
+                tooltip_data=[],  # Will be populated in the callback
+                tooltip_duration=None,
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
                     'fontWeight': 'bold',
@@ -801,23 +836,32 @@ app.layout = html.Div([
                 sort_action="native",
                 filter_action="native"
             )
-        ], style={'width': '32%', 'display': 'inline-block', 'marginRight': '2%'}),
+        ], style={'width': '31%', 'display': 'inline-block', 'marginRight': '2%', 'minWidth': '300px'}),
         
-        html.Div([
-            html.H4(f"{sheet_info[2][2]} - Product Analysis", style={'textAlign': 'center', 'marginBottom': 15}),
+        html.Div([            html.H4(f"{sheet_info[2][2]} - Product Analysis", style={'textAlign': 'center', 'marginBottom': 15}),
             dash_table.DataTable(
                 id='table-2',
                 columns=[
                     {'name': 'Product Description', 'id': 'ProductDesc', 'type': 'text'},
-                    {'name': 'Amount Invoiced (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.2f'}},
-                    {'name': 'Quantity Ordered', 'id': 'QtyOrdered', 'type': 'numeric', 'format': {'specifier': ',.0f'}}
+                    {'name': 'Amount (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.2f'}},
+                    {'name': 'Qty', 'id': 'QtyOrdered', 'type': 'numeric', 'format': {'specifier': ',.0f'}}
                 ],
                 style_cell={
                     'textAlign': 'left',
                     'padding': '8px',
                     'fontFamily': 'Arial, sans-serif',
-                    'fontSize': '12px'
+                    'fontSize': '12px',
+                    'overflow': 'hidden',
+                    'textOverflow': 'ellipsis',
+                    'maxWidth': 0,
                 },
+                style_cell_conditional=[
+                    {'if': {'column_id': 'ProductDesc'}, 'width': '60%'},
+                    {'if': {'column_id': 'Amount Invoiced W.O. VAT'}, 'width': '20%'},
+                    {'if': {'column_id': 'QtyOrdered'}, 'width': '20%'},
+                ],
+                tooltip_data=[],  # Will be populated in the callback
+                tooltip_duration=None,
                 style_header={
                     'backgroundColor': 'rgb(230, 230, 230)',
                     'fontWeight': 'bold',
@@ -837,8 +881,8 @@ app.layout = html.Div([
                 sort_action="native",
                 filter_action="native"
             )
-        ], style={'width': '32%', 'display': 'inline-block'})
-          ], style={'display': 'flex', 'justifyContent': 'space-between'}),
+        ], style={'width': '31%', 'display': 'inline-block', 'minWidth': '300px'})
+    ], style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'space-between', 'marginBottom': '20px'}),
     
     html.Div([
         html.Hr(),
@@ -846,7 +890,7 @@ app.layout = html.Div([
                style={'textAlign': 'center', 'color': 'gray', 'marginTop': 20})
     ])
     
-], style={'margin': '20px'})
+], style={'margin': '20px', 'fontFamily': 'Arial, sans-serif', 'maxWidth': '2000px', 'marginLeft': 'auto', 'marginRight': 'auto'})
 
 # Callback for mutual exclusivity between invoice day and week filters
 @app.callback(
@@ -872,7 +916,8 @@ def toggle_filter_exclusivity(invoice_days, weeks):
 # Callback for updating top performers table
 @app.callback(
     [Output('top-performers-table', 'data'),
-     Output('top-performers-table', 'columns')],
+     Output('top-performers-table', 'columns'),
+     Output('top-performers-table', 'tooltip_data')],
     [Input('invoice-day-filter', 'value'),
      Input('week-filter', 'value'),
      Input('brand-filter', 'value'),
@@ -894,13 +939,22 @@ def update_top_performers_table(invoice_days, weeks, brands, idgs, types):
         {'name': 'MoM Change %', 'id': 'MoM Change %', 'type': 'text'}
     ]
     
-    return top_performers_data, columns
+    # Create tooltips for product names (to show full name on hover)
+    tooltip_data = []
+    for row in top_performers_data:
+        tooltip_row = {'Product': {'value': row['Product'], 'type': 'markdown'}}
+        tooltip_data.append(tooltip_row)
+    
+    return top_performers_data, columns, tooltip_data
 
 # Callbacks for updating tables based on filters
 @app.callback(
     [Output('table-0', 'data'),
      Output('table-1', 'data'),
-     Output('table-2', 'data')],
+     Output('table-2', 'data'),
+     Output('table-0', 'tooltip_data'),
+     Output('table-1', 'tooltip_data'),
+     Output('table-2', 'tooltip_data')],
     [Input('invoice-day-filter', 'value'),
      Input('week-filter', 'value'),
      Input('brand-filter', 'value'),
@@ -918,7 +972,20 @@ def update_tables(invoice_days, weeks, brands, idgs, types):
     table_data_1 = filter_and_aggregate_data(dfs[1], invoice_days, weeks, brands, idgs, types)
     table_data_2 = filter_and_aggregate_data(dfs[2], invoice_days, weeks, brands, idgs, types)
     
-    return table_data_0, table_data_1, table_data_2
+    # Create tooltips for product descriptions (to show full description on hover)
+    tooltip_data_0 = [{
+        'ProductDesc': {'value': row['ProductDesc'], 'type': 'markdown'}
+    } for row in table_data_0]
+    
+    tooltip_data_1 = [{
+        'ProductDesc': {'value': row['ProductDesc'], 'type': 'markdown'}
+    } for row in table_data_1]
+    
+    tooltip_data_2 = [{
+        'ProductDesc': {'value': row['ProductDesc'], 'type': 'markdown'}
+    } for row in table_data_2]
+    
+    return table_data_0, table_data_1, table_data_2, tooltip_data_0, tooltip_data_1, tooltip_data_2
 
 # Run the app
 if __name__ == '__main__':

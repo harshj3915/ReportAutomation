@@ -286,10 +286,21 @@ app.index_string = '''
             }
             .dash-table-container .dash-header.dash-header--merged:hover {
                 cursor: default !important;
-            }
-            /* Ensure child column headers show sort arrows */
+            }            /* Ensure child column headers show sort arrows */
             .dash-table-container .dash-header:not(.dash-header--merged) .column-header--sort {
                 display: block !important;
+            }
+            /* Styling for exclude dropdowns */
+            .exclude-dropdown .Select-control {
+                border-color: #dc3545 !important;
+                background-color: #fff5f5 !important;
+            }
+            .exclude-dropdown .Select-control:hover {
+                border-color: #c82333 !important;
+            }
+            .exclude-dropdown .Select--is-focused .Select-control {
+                border-color: #dc3545 !important;
+                box-shadow: 0 0 0 1px #dc3545 !important;
             }
         </style>
     </head>
@@ -366,6 +377,13 @@ def filter_data(month1, month2, month1_days, month2_days, brand_filter, category
         # Filter by months
         df_month1 = df_filtered[df_filtered['Month_Year'] == month1].copy()
         df_month2 = df_filtered[df_filtered['Month_Year'] == month2].copy()
+        
+        # Clean filter lists - remove SELECT_ALL from filters if present
+        month1_days = [day for day in (month1_days or []) if day != 'SELECT_ALL']
+        month2_days = [day for day in (month2_days or []) if day != 'SELECT_ALL']
+        brand_filter = [brand for brand in (brand_filter or []) if brand != 'SELECT_ALL']
+        category_filter = [cat for cat in (category_filter or []) if cat != 'SELECT_ALL']
+        day_filter = [day for day in (day_filter or []) if day != 'SELECT_ALL']
         
         # Handle parent day filters first (month-specific day filtering)
         # Check if parent day filters are active (not empty)
@@ -476,38 +494,37 @@ app.layout = html.Div([
                 )
             ], style={'width': '48%', 'display': 'inline-block'})
         ]),
-        
-        html.Div([
+          html.Div([
             html.Div([
-                html.Label("Select Days for First Month:", style={'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),                dcc.Dropdown(
+                html.Label("Select Days for First Month:", style={'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),
+                dcc.Dropdown(
                     id='month1-days-filter',
-                    options=[{'label': day, 'value': day} for day in get_available_days()],
+                    options=[{'label': '🔲 Select All', 'value': 'SELECT_ALL'}] + [{'label': day, 'value': day} for day in get_available_days()],
                     value=[],
                     multi=True,
-                    placeholder="Select days for first month...",
+                    placeholder="Select days for first month (use Select All to choose all)...",
                     style={'marginBottom': '15px'}
                 )
             ], style={'width': '48%', 'display': 'inline-block', 'marginRight': '4%'}),
             
             html.Div([
-                html.Label("Select Days for Second Month:", style={'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),                dcc.Dropdown(
+                html.Label("Select Days for Second Month:", style={'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),
+                dcc.Dropdown(
                     id='month2-days-filter',
-                    options=[{'label': day, 'value': day} for day in get_available_days()],
+                    options=[{'label': '🔲 Select All', 'value': 'SELECT_ALL'}] + [{'label': day, 'value': day} for day in get_available_days()],
                     value=[],
                     multi=True,
-                    placeholder="Select days for second month...",
+                    placeholder="Select days for second month (use Select All to choose all)...",
                     style={'marginBottom': '15px'}
                 )
             ], style={'width': '48%', 'display': 'inline-block'})
-        ]),
-        
-        html.Div([            html.Div([
+        ]),html.Div([            html.Div([
                 html.Label("Brand Filter:", style={'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),                dcc.Dropdown(
                     id='brand-filter',
-                    options=[{'label': brand, 'value': brand} for brand in get_available_brands()],
+                    options=[{'label': '🔲 Select All', 'value': 'SELECT_ALL'}] + [{'label': brand, 'value': brand} for brand in get_available_brands()],
                     value=[],
                     multi=True,
-                    placeholder="Select brands...",
+                    placeholder="Select brands (blank = all, use Select All to choose all)...",
                     style={'marginBottom': '15px'}
                 )
             ], style={'width': '32%', 'display': 'inline-block', 'marginRight': '2%'}),
@@ -515,10 +532,10 @@ app.layout = html.Div([
             html.Div([
                 html.Label("Category Filter:", style={'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),                dcc.Dropdown(
                     id='category-filter',
-                    options=[{'label': cat, 'value': cat} for cat in get_available_categories()],
+                    options=[{'label': '🔲 Select All', 'value': 'SELECT_ALL'}] + [{'label': cat, 'value': cat} for cat in get_available_categories()],
                     value=[],
                     multi=True,
-                    placeholder="Select categories...",
+                    placeholder="Select categories (blank = all, use Select All to choose all)...",
                     style={'marginBottom': '15px'}
                 )
             ], style={'width': '32%', 'display': 'inline-block', 'marginRight': '2%'}),
@@ -526,10 +543,10 @@ app.layout = html.Div([
             html.Div([
                 html.Label("Day Filter:", style={'fontWeight': 'bold', 'marginBottom': '5px', 'display': 'block'}),                dcc.Dropdown(
                     id='day-filter',
-                    options=[{'label': day, 'value': day} for day in get_available_days()],
+                    options=[{'label': '🔲 Select All', 'value': 'SELECT_ALL'}] + [{'label': day, 'value': day} for day in get_available_days()],
                     value=[],
                     multi=True,
-                    placeholder="Select days...",
+                    placeholder="Select days (blank = all, use Select All to choose all)...",
                     style={'marginBottom': '15px'}
                 )
             ], style={'width': '32%', 'display': 'inline-block'})
@@ -833,7 +850,96 @@ def create_item_comparison(df_month1, df_month2, month1, month2):
         print(f"Error creating item comparison: {e}")
         return html.Div(f"Error creating item comparison table: {str(e)}")
 
-# Callback to disable child day filter when parent day filters are active
+# Callbacks for Select All functionality
+@app.callback(
+    Output('brand-filter', 'value'),
+    [Input('brand-filter', 'value')],
+    [State('brand-filter', 'options')]
+)
+def handle_brand_select_all(selected_values, options):
+    if selected_values and 'SELECT_ALL' in selected_values:
+        # Get all brand values (excluding SELECT_ALL)
+        all_brands = [opt['value'] for opt in options if opt['value'] != 'SELECT_ALL']
+        
+        # If SELECT_ALL was just added, select all brands
+        if len(selected_values) == 1:  # Only SELECT_ALL is selected
+            return all_brands
+        else:
+            # If SELECT_ALL is selected along with other items, deselect all
+            return []
+    return selected_values or []
+
+@app.callback(
+    Output('category-filter', 'value'),
+    [Input('category-filter', 'value')],
+    [State('category-filter', 'options')]
+)
+def handle_category_select_all(selected_values, options):
+    if selected_values and 'SELECT_ALL' in selected_values:
+        # Get all category values (excluding SELECT_ALL)
+        all_categories = [opt['value'] for opt in options if opt['value'] != 'SELECT_ALL']
+        
+        # If SELECT_ALL was just added, select all categories
+        if len(selected_values) == 1:  # Only SELECT_ALL is selected
+            return all_categories
+        else:
+            # If SELECT_ALL is selected along with other items, deselect all
+            return []
+    return selected_values or []
+
+@app.callback(
+    Output('day-filter', 'value'),
+    [Input('day-filter', 'value')],
+    [State('day-filter', 'options')]
+)
+def handle_day_select_all(selected_values, options):
+    if selected_values and 'SELECT_ALL' in selected_values:
+        # Get all day values (excluding SELECT_ALL)
+        all_days = [opt['value'] for opt in options if opt['value'] != 'SELECT_ALL']
+        
+        # If SELECT_ALL was just added, select all days
+        if len(selected_values) == 1:  # Only SELECT_ALL is selected
+            return all_days
+        else:
+            # If SELECT_ALL is selected along with other items, deselect all
+            return []
+    return selected_values or []
+
+@app.callback(
+    Output('month1-days-filter', 'value'),
+    [Input('month1-days-filter', 'value')],
+    [State('month1-days-filter', 'options')]
+)
+def handle_month1_days_select_all(selected_values, options):
+    if selected_values and 'SELECT_ALL' in selected_values:
+        # Get all day values (excluding SELECT_ALL)
+        all_days = [opt['value'] for opt in options if opt['value'] != 'SELECT_ALL']
+        
+        # If SELECT_ALL was just added, select all days
+        if len(selected_values) == 1:  # Only SELECT_ALL is selected
+            return all_days
+        else:
+            # If SELECT_ALL is selected along with other items, deselect all
+            return []
+    return selected_values or []
+
+@app.callback(
+    Output('month2-days-filter', 'value'),
+    [Input('month2-days-filter', 'value')],
+    [State('month2-days-filter', 'options')]
+)
+def handle_month2_days_select_all(selected_values, options):
+    if selected_values and 'SELECT_ALL' in selected_values:
+        # Get all day values (excluding SELECT_ALL)
+        all_days = [opt['value'] for opt in options if opt['value'] != 'SELECT_ALL']
+        
+        # If SELECT_ALL was just added, select all days
+        if len(selected_values) == 1:  # Only SELECT_ALL is selected
+            return all_days
+        else:
+            # If SELECT_ALL is selected along with other items, deselect all
+            return []
+    return selected_values or []
 @app.callback(
     [Output('day-filter', 'disabled'),
      Output('day-filter', 'placeholder')],
@@ -851,7 +957,7 @@ def disable_child_day_filter(month1_days, month2_days):
         return True, "Disabled when month-specific day filters are active"
     else:
         # Enable child day filter with normal placeholder
-        return False, "Select days..."
+        return False, "Select days (blank = all, use Select All to choose all)..."
 
 if __name__ == '__main__':
     print("\n" + "="*50)

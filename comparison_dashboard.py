@@ -643,24 +643,37 @@ def create_category_comparison(df_month1, df_month2, month1, month2):
                 {'name': [metric, month1], 'id': f'{month1}_{metric}', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
                 {'name': [metric, month2], 'id': f'{month2}_{metric}', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
                 {'name': [metric, '% Change'], 'id': f'Change_{metric}', 'type': 'numeric', 'format': {'specifier': '+.1%'}}
-            ])
-          # Style data conditionally for percentage columns
+            ])          # Style data conditionally for percentage columns
         style_data_conditional = []
         for metric in metrics:
             change_col = f'Change_{metric}'
-            for i, row in enumerate(table_data):
-                change_value = row[change_col]
-                if change_value > 0:
-                    color = '#28a745'
-                elif change_value < 0:
-                    color = '#dc3545'
-                else:
-                    color = '#6c757d'
-                
-                style_data_conditional.append({
-                    'if': {'row_index': i, 'column_id': change_col},
-                    'color': color,
-                    'fontWeight': 'bold'                })        
+            # Apply styling based on cell value, not row index
+            style_data_conditional.extend([
+                {
+                    'if': {
+                        'filter_query': f'{{{change_col}}} > 0',
+                        'column_id': change_col
+                    },
+                    'color': '#28a745',
+                    'fontWeight': 'bold'
+                },
+                {
+                    'if': {
+                        'filter_query': f'{{{change_col}}} < 0',
+                        'column_id': change_col
+                    },
+                    'color': '#dc3545',
+                    'fontWeight': 'bold'
+                },
+                {
+                    'if': {
+                        'filter_query': f'{{{change_col}}} = 0',
+                        'column_id': change_col
+                    },
+                    'color': '#6c757d',
+                    'fontWeight': 'bold'
+                }
+            ])
         return dash_table.DataTable(
             data=table_data,
             columns=columns,
@@ -750,25 +763,38 @@ def create_item_comparison(df_month1, df_month2, month1, month2):
                 {'name': [metric, month1], 'id': f'{month1}_{metric}', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
                 {'name': [metric, month2], 'id': f'{month2}_{metric}', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
                 {'name': [metric, '% Change'], 'id': f'Change_{metric}', 'type': 'numeric', 'format': {'specifier': '+.1%'}}
-            ])
-        
+            ])        
         # Style data conditionally for percentage columns (item comparison)
         style_data_conditional = []
         for metric in metrics:
             change_col = f'Change_{metric}'
-            for i, row in enumerate(table_data):
-                change_value = row[change_col]
-                if change_value > 0:
-                    color = '#28a745'
-                elif change_value < 0:
-                    color = '#dc3545'
-                else:
-                    color = '#6c757d'
-                
-                style_data_conditional.append({
-                    'if': {'row_index': i, 'column_id': change_col},
-                    'color': color,
-                    'fontWeight': 'bold'                })        
+            # Apply styling based on cell value, not row index
+            style_data_conditional.extend([
+                {
+                    'if': {
+                        'filter_query': f'{{{change_col}}} > 0',
+                        'column_id': change_col
+                    },
+                    'color': '#28a745',
+                    'fontWeight': 'bold'
+                },
+                {
+                    'if': {
+                        'filter_query': f'{{{change_col}}} < 0',
+                        'column_id': change_col
+                    },
+                    'color': '#dc3545',
+                    'fontWeight': 'bold'
+                },
+                {
+                    'if': {
+                        'filter_query': f'{{{change_col}}} = 0',
+                        'column_id': change_col
+                    },
+                    'color': '#6c757d',
+                    'fontWeight': 'bold'
+                }
+            ])
         return dash_table.DataTable(
             data=table_data,
             columns=columns,
@@ -840,7 +866,7 @@ if __name__ == '__main__':
         print(f"🏢 Available brands: {len(get_available_brands())}")
         print(f"📦 Available categories: {len(get_available_categories())}")
         
-    print("\n🌐 Dashboard will be available at: http://127.0.0.1:8050")
+    print("\n🌐 Dashboard will be available at: http://127.0.0.I1:8050")
     print("📊 Features:")
     print("   • Month-to-month comparison")
     print("   • Percentage change calculations with color coding")
@@ -849,4 +875,4 @@ if __name__ == '__main__':
     print("   • Sortable and filterable tables")
     print("\n" + "="*50)
     
-    app.run(debug=True, host='127.0.0.1', port=8050)
+    app.run(debug=False, host='127.0.0.1', port=8050)

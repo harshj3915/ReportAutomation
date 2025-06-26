@@ -16,106 +16,245 @@ from openpyxl import load_workbook
 import time
 
 # Define paths for saved data
-cache_folder = os.path.join(os.path.dirname(__file__), 'cache')
-cache_file = os.path.join(cache_folder, 'combined_data.pkl')
+cache_folder = os.path.join(os.path.dirname(__file__), 'cache', 'individual_files')
+combined_cache_file = os.path.join(os.path.dirname(__file__), 'cache', 'combined_data.pkl')
 
-# Check if cached data exists first, before processing any Excel files
-if os.path.exists(cache_file):
-    print(f"\nCache file found at {cache_file}")
-    print(f"Loading cached data instead of processing Excel files...")
-    combined_df = pd.read_pickle(cache_file)
-    print("Cached data loaded successfully!")
+# Function to get cache file path for a specific file
+def get_cache_path(file_path):
+    """Get cache file path for a specific data file"""
+    file_name = os.path.basename(file_path)
+    file_name_without_ext = os.path.splitext(file_name)[0]
+    return os.path.join(cache_folder, f"{file_name_without_ext}.pkl")
+
+# Function to check if cached file is newer than source file
+def is_cache_valid(source_file, cache_file):
+    """Check if cache file exists and is newer than source file"""
+    if not os.path.exists(cache_file):
+        return False
     
-    # Filter out specific categories
-    categories_to_exclude = ['JSP', 'Remove', 'FOC-R', 'EMI', '(blank)', 'PRO', 'WRT', 'Others']
-    if 'Category' in combined_df.columns:
-        print(f"Filtering out categories: {', '.join(categories_to_exclude)}")
-        before_count = len(combined_df)
-        combined_df = combined_df[~combined_df['Category'].isin(categories_to_exclude)]
-        after_count = len(combined_df)
-        print(f"Removed {before_count - after_count} rows with excluded categories")
+    source_mtime = os.path.getmtime(source_file)
+    cache_mtime = os.path.getmtime(cache_file)
+    return cache_mtime > source_mtime
+
+# Function to clean orphaned cache files
+def clean_orphaned_cache(source_files):
+    """Remove cache files that no longer have corresponding source files"""
+    if not os.path.exists(cache_folder):
+        return
     
-    # Process the date column to extract day, month, and year
-    if 'Date' in combined_df.columns and not all(col in combined_df.columns for col in ['Day', 'Month', 'Year']):
-        print("Processing date column to extract day, month, and year...")
-        # Convert to datetime if it's not already
-        if not pd.api.types.is_datetime64_dtype(combined_df['Date']):
-            combined_df['Date'] = pd.to_datetime(combined_df['Date'], errors='coerce')
+    # Get all cache files
+    cache_files = glob.glob(os.path.join(cache_folder, '*.pkl'))
+    source_basenames = [os.path.splitext(os.path.basename(f))[0] for f in source_files]
+    
+    for cache_file in cache_files:
+        cache_basename = os.path.splitext(os.path.basename(cache_file))[0]
+        if cache_basename not in source_basenames:
+            try:
+                os.remove(cache_file)
+                print(f"Removed orphaned cache file: {os.path.basename(cache_file)}")
+            except Exception as e:
+                print(f"Error removing cache file {cache_file}: {e}")
+
+# Check if combined cache exists first
+# if os.path.exists(combined_cache_file):
+#     print(f"\nCombined cache file found at {combined_cache_file}")
+#     print(f"Loading cached data instead of processing files...")
+#     combined_df = pd.read_pickle(combined_cache_file)
+#     print("Cached data loaded successfully!")
+    
+#     # Filter out specific categories
+#     categories_to_exclude = ['JSP', 'Remove', 'FOC-R', 'EMI', '(blank)', 'PRO', 'WRT', 'Others']
+#     if 'Category' in combined_df.columns:
+#         print(f"Filtering out categories: {', '.join(categories_to_exclude)}")
+#         before_count = len(combined_df)
+#         combined_df = combined_df[~combined_df['Category'].isin(categories_to_exclude)]
+#         after_count = len(combined_df)
+#         print(f"Removed {before_count - after_count} rows with excluded categories")
+    
+#     # Process the date column to extract day, month, and year
+#     if 'Date' in combined_df.columns and not all(col in combined_df.columns for col in ['Day', 'Month', 'Year']):
+#         print("Processing date column to extract day, month, and year...")
+#         # Convert to datetime if it's not already
+#         if not pd.api.types.is_datetime64_dtype(combined_df['Date']):
+#             combined_df['Date'] = pd.to_datetime(combined_df['Date'], errors='coerce')
         
-        # Extract day, month and year
-        combined_df['Day'] = combined_df['Date'].dt.day
-        combined_df['Month'] = combined_df['Date'].dt.month_name()
-        combined_df['Year'] = combined_df['Date'].dt.year
+#         # Extract day, month and year
+#         combined_df['Day'] = combined_df['Date'].dt.day
+#         combined_df['Month'] = combined_df['Date'].dt.month_name()
+#         combined_df['Year'] = combined_df['Date'].dt.year
         
-        # Save the updated dataframe back to cache
-        combined_df.to_pickle(cache_file)
-        print("Date columns added and cache updated")
+#         # Save the updated dataframe back to cache
+#         combined_df.to_pickle(combined_cache_file)
+#         print("Date columns added and cache updated")
     
-    print("\nCombined data shape:", combined_df.shape)
-    print("\nCombined data columns:", combined_df.columns.tolist())
+#     print("\nCombined data shape:", combined_df.shape)
+#     print("\nCombined data columns:", combined_df.columns.tolist())
     
-    # Display the first few rows of the combined data
-    print("\nFirst few rows of combined data:")
-    print(combined_df.head())
+#     # Display the first few rows of the combined data
+#     print("\nFirst few rows of combined data:")
+#     print(combined_df.head())
     
-else:
-    print("No cache found. Processing Excel files...")
+
+print("No combined cache found. Processing files with individual caching...")
+
+try:
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
+    print(f"Loading config from: {config_path}")
     
+    with open(config_path, 'r') as f:
+        config_data = json.load(f)
+    folder_path = config_data['paths']['MainDashboardData']
+    
+    # Convert relative path to absolute path if needed
+    if not os.path.isabs(folder_path):
+        # If it's a relative path, make it relative to the current script directory
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        folder_path = os.path.join(script_dir, folder_path)
+        folder_path = os.path.normpath(folder_path)  # Normalize the path
+        
+except Exception as e:
+    print(f"❌ Error loading config.json: {e}")
+    print("Using default folder path relative to script location...")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    folder_path = os.path.join(script_dir, "q", "MainDashboardData")
+    folder_path = os.path.normpath(folder_path)  # Normalize the path
+
+print(f"Folder path: {folder_path}")
+print(f"Folder exists: {os.path.exists(folder_path)}")
+
+# Additional debugging - list contents if folder exists
+if os.path.exists(folder_path):
     try:
-        with open('config.json', 'r') as f:
-            config_data = json.load(f)
-        folder_path = config_data['paths']['MainDashboardData']
+        contents = os.listdir(folder_path)
+        print(f"Contents of folder: {contents}")
+        # Filter for Excel and CSV files specifically
+        excel_csv_files = [f for f in contents if f.endswith(('.xlsx', '.csv'))]
+        print(f"Excel/CSV files in folder: {excel_csv_files}")
     except Exception as e:
-        print(f"❌ Error loading config.json: {e}")
-        print("Using default DSR folder path...")
-        folder_path = "C:\\Users\\91843\\Documents\\VsCode Codes\\ReportAutomation\\test\\DSR"
-    print(f"Folder path: {folder_path}")
+        print(f"Error listing folder contents: {e}")
+else:
+    # Try to find where the MainDashboardData folder might be
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    print(f"Script directory: {script_dir}")
     
-    # Get a list of all Excel files in the folder
-    excel_files = glob.glob(os.path.join(folder_path, '*.xlsx'))
-    print(f"Found {len(excel_files)} Excel files")
+    # Check if MainDashboardData exists in script directory
+    possible_paths = [
+        os.path.join(script_dir, "MainDashboardData"),
+        os.path.join(script_dir, "q", "MainDashboardData"),
+        os.path.join(script_dir, "..", "q", "MainDashboardData")
+    ]
     
-    # Function to get the sheet with the longest name from an Excel file
-    def get_longest_sheet_name(file_path):
-        workbook = load_workbook(file_path, read_only=True)
-        sheet_names = workbook.sheetnames
-        
-        if not sheet_names:
-            return None
-        
-        # Find the sheet with the longest name
-        longest_sheet = max(sheet_names, key=len)
-        return longest_sheet
-    
-    # List to store dataframes from each Excel file
-    all_dfs = []
-    
-    # Process each Excel file
-    start_time = time.time()
-    print("Starting Excel file processing...")
-    
+    for path in possible_paths:
+        norm_path = os.path.normpath(path)
+        print(f"Checking possible path: {norm_path} - Exists: {os.path.exists(norm_path)}")
+        if os.path.exists(norm_path):
+            print(f"Found data folder at: {norm_path}")
+            folder_path = norm_path
+            break
+
+# Get a list of all Excel and CSV files in the folder
+excel_files = glob.glob(os.path.join(folder_path, '*.xlsx'))
+csv_files = glob.glob(os.path.join(folder_path, '*.csv'))
+all_files = excel_files + csv_files
+print(f"Found {len(excel_files)} Excel files and {len(csv_files)} CSV files (Total: {len(all_files)} files)")
+
+# Clean orphaned cache files
+clean_orphaned_cache(all_files)
+
+# Debug: Print the actual files found
+if excel_files:
+    print("Excel files found:")
     for file in excel_files:
+        print(f"  - {os.path.basename(file)}")
+if csv_files:
+    print("CSV files found:")
+    for file in csv_files:
+        print(f"  - {os.path.basename(file)}")
+
+if not all_files:
+    print(f"⚠️  No files found in folder: {folder_path}")
+    print("Please check if the folder path is correct and contains .xlsx or .csv files")
+
+# Function to get the sheet with the longest name from an Excel file
+def get_longest_sheet_name(file_path):
+    workbook = load_workbook(file_path, read_only=True)
+    sheet_names = workbook.sheetnames
+    
+    if not sheet_names:
+        return None
+    
+    # Find the sheet with the longest name
+    longest_sheet = max(sheet_names, key=len)
+    return longest_sheet
+
+# Function to determine file type and read data with caching
+def read_data_file_cached(file_path):
+    cache_path = get_cache_path(file_path)
+    
+    # Check if cache is valid
+    if is_cache_valid(file_path, cache_path):
+        print(f"Loading from cache: {os.path.basename(file_path)}")
         try:
-            # Get the sheet with the longest name
-            longest_sheet = get_longest_sheet_name(file)
-            
-            if longest_sheet:
-                print(f"Reading file: {os.path.basename(file)}, Sheet: {longest_sheet}")
-                
-                # Read the data from the sheet with the longest name
-                df = pd.read_excel(file, sheet_name=longest_sheet)
-                               
-                # Append to our list of dataframes
-                all_dfs.append(df)
-            else:
-                print(f"No sheets found in {os.path.basename(file)}")
-                
+            return pd.read_pickle(cache_path)
         except Exception as e:
-            print(f"Error processing {os.path.basename(file)}: {str(e)}")
+            print(f"Error loading cache for {os.path.basename(file_path)}: {e}")
+            # Fall through to read from source
     
-    print(f"Excel processing finished in {time.time() - start_time:.2f} seconds")
+    # Read from source file
+    file_extension = os.path.splitext(file_path)[1].lower()
     
-    # Now we have all the data in all_dfs list    # This block only runs if we're processing Excel files (no cache was found)
+    if file_extension == '.xlsx':
+        # Handle Excel files
+        longest_sheet = get_longest_sheet_name(file_path)
+        if longest_sheet:
+            print(f"Reading Excel file: {os.path.basename(file_path)}, Sheet: {longest_sheet}")
+            df = pd.read_excel(file_path, sheet_name=longest_sheet)
+        else:
+            print(f"No sheets found in {os.path.basename(file_path)}")
+            return None
+    elif file_extension == '.csv':
+        # Handle CSV files
+        print(f"Reading CSV file: {os.path.basename(file_path)}")
+        df = pd.read_csv(file_path)
+    else:
+        print(f"Unsupported file type: {file_extension}")
+        return None
+    
+    # Cache the data
+    try:
+        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+        df.to_pickle(cache_path)
+        print(f"Cached: {os.path.basename(file_path)}")
+    except Exception as e:
+        print(f"Error caching {os.path.basename(file_path)}: {e}")
+    
+    return df
+
+# List to store dataframes from each file
+all_dfs = []
+
+# Process each file (Excel and CSV) with caching
+start_time = time.time()
+print("Starting file processing with individual caching...")
+
+for file in all_files:
+    try:
+        # Read data from the file (with caching)
+        df_file = read_data_file_cached(file)
+        
+        if df_file is not None:
+            # Append to our list of dataframes
+            all_dfs.append(df_file)
+        
+    except Exception as e:
+        print(f"Error processing {os.path.basename(file)}: {str(e)}")
+
+print(f"File processing finished in {time.time() - start_time:.2f} seconds")
+
+# Now we have all the data in all_dfs list    # This block only runs if we're processing Excel files (no cache was found)
+
+
+
 if 'all_dfs' in locals():
     # Combine all dataframes if we have any
     if all_dfs:
@@ -153,30 +292,26 @@ if 'all_dfs' in locals():
         # Save the combined dataframe to disk for future use
         try:
             # Create cache folder if it doesn't exist
-            if not os.path.exists(cache_folder):
-                os.makedirs(cache_folder)
+            os.makedirs(os.path.dirname(combined_cache_file), exist_ok=True)
                 
             # Save the dataframe
-            combined_df.to_pickle(cache_file)
-            print(f"\nData saved to {cache_file} for future use")
+            combined_df.to_pickle(combined_cache_file)
+            print(f"\nData saved to {combined_cache_file} for future use")
         except Exception as e:
             print(f"\nError saving data to cache: {str(e)}")
     else:
-        print("No data was loaded from the Excel files.")
+        print("No data was loaded from the files.")
         combined_df = None
 
 # Load the data from the cache
-cache_folder = os.path.join(os.path.dirname(__file__), 'cache')
-cache_file = os.path.join(cache_folder, 'combined_data.pkl')
-
 # Load cached data
-if os.path.exists(cache_file):
-    df = pd.read_pickle(cache_file)
+if os.path.exists(combined_cache_file):
+    df = pd.read_pickle(combined_cache_file)
     print("Data loaded successfully!")
     print(f"Data shape: {df.shape}")
     print(f"Columns: {df.columns.tolist()}")
 else:
-    print("No cache file found. Please run mainDashboard.py first.")
+    print("No cache file found. Please run the script to process files first.")
     df = pd.DataFrame()
 
 # Initialize Dash app
@@ -598,7 +733,10 @@ def update_comparison_tables(month1, month2, month1_days, month2_days, brand_fil
     df_month1, df_month2 = filter_data(month1, month2, month1_days, month2_days, brand_filter, category_filter, day_filter)
     
     if df_month1.empty or df_month2.empty:
-        return html.Div("No data available for the selected criteria."), html.Div("No data available for the selected criteria.")
+        if month1 == month2:
+            return html.Div("No data available for the selected criteria. When comparing the same month, please ensure you have selected different day filters for each period."), html.Div("No data available for the selected criteria. When comparing the same month, please ensure you have selected different day filters for each period.")
+        else:
+            return html.Div("No data available for the selected criteria."), html.Div("No data available for the selected criteria.")
     
     # Category Comparison
     category_comparison = create_category_comparison(df_month1, df_month2, month1, month2)
@@ -626,13 +764,23 @@ def create_category_comparison(df_month1, df_month2, month1, month2):
         agg_month1 = df_month1.groupby('Category')[metrics].sum().reset_index()
         agg_month2 = df_month2.groupby('Category')[metrics].sum().reset_index()
         
-        # Merge the data
-        comparison = pd.merge(agg_month1, agg_month2, on='Category', suffixes=(f'_{month1}', f'_{month2}'), how='outer').fillna(0)
+        # Handle same month comparison by creating unique suffixes
+        if month1 == month2:
+            suffix1 = f'{month1}_Period1'
+            suffix2 = f'{month2}_Period2'
+        else:
+            suffix1 = f'_{month1}'
+            suffix2 = f'_{month2}'
+        
+        # Merge the data with proper suffixes
+        # Using 'outer' join to include ALL categories from both periods
+        # Categories appearing in only one period will show 0 for the missing period
+        comparison = pd.merge(agg_month1, agg_month2, on='Category', suffixes=(suffix1, suffix2), how='outer').fillna(0)
         
         # Calculate percentage changes
         for metric in metrics:
-            col1 = f'{metric}_{month1}'
-            col2 = f'{metric}_{month2}'
+            col1 = f'{metric}{suffix1}'
+            col2 = f'{metric}{suffix2}'
             comparison[f'{metric}_change'] = comparison.apply(
                 lambda row: calculate_percentage_change(row[col1], row[col2]), axis=1
             )        # Create table data
@@ -641,24 +789,28 @@ def create_category_comparison(df_month1, df_month2, month1, month2):
             row_data = {'Category': row['Category']}
             
             for metric in metrics:
-                col1 = f'{metric}_{month1}'
-                col2 = f'{metric}_{month2}'
+                col1 = f'{metric}{suffix1}'
+                col2 = f'{metric}{suffix2}'
                 change_col = f'{metric}_change'
                 
                 # Store actual numeric values for sorting, but format for display
-                row_data[f'{month1}_{metric}'] = row[col1]
-                row_data[f'{month2}_{metric}'] = row[col2]
+                row_data[f'{month1 if month1 != month2 else "Period1"}_{metric}'] = row[col1]
+                row_data[f'{month2 if month1 != month2 else "Period2"}_{metric}'] = row[col2]
                 row_data[f'Change_{metric}'] = row[change_col] / 100  # Convert to decimal for percentage formatting
             
-            table_data.append(row_data)        # Create multi-level columns with proper hierarchy
+            table_data.append(row_data)
+        
+        # Create multi-level columns with proper hierarchy
         columns = [
             {'name': ['', 'Category'], 'id': 'Category', 'type': 'text'}
         ]
         
         for metric in metrics:
+            period1_label = month1 if month1 != month2 else "Period 1"
+            period2_label = month2 if month1 != month2 else "Period 2"
             columns.extend([
-                {'name': [metric, month1], 'id': f'{month1}_{metric}', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
-                {'name': [metric, month2], 'id': f'{month2}_{metric}', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
+                {'name': [metric, period1_label], 'id': f'{month1 if month1 != month2 else "Period1"}_{metric}', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
+                {'name': [metric, period2_label], 'id': f'{month2 if month1 != month2 else "Period2"}_{metric}', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
                 {'name': [metric, '% Change'], 'id': f'Change_{metric}', 'type': 'numeric', 'format': {'specifier': '+.1%'}}
             ])          # Style data conditionally for percentage columns
         style_data_conditional = []
@@ -739,46 +891,60 @@ def create_item_comparison(df_month1, df_month2, month1, month2):
         agg_month1 = df_month1.groupby('Item name')[metrics].sum().reset_index()
         agg_month2 = df_month2.groupby('Item name')[metrics].sum().reset_index()
         
-        # Merge the data
-        comparison = pd.merge(agg_month1, agg_month2, on='Item name', suffixes=(f'_{month1}', f'_{month2}'), how='outer').fillna(0)
+        # Handle same month comparison by creating unique suffixes
+        if month1 == month2:
+            suffix1 = f'{month1}_Period1'
+            suffix2 = f'{month2}_Period2'
+        else:
+            suffix1 = f'_{month1}'
+            suffix2 = f'_{month2}'
+        
+        # Merge the data with proper suffixes
+        # Using 'outer' join to include ALL items from both periods
+        # Items appearing in only one period will show 0 for the missing period
+        comparison = pd.merge(agg_month1, agg_month2, on='Item name', suffixes=(suffix1, suffix2), how='outer').fillna(0)
         
         # Calculate percentage changes
         for metric in metrics:
-            col1 = f'{metric}_{month1}'
-            col2 = f'{metric}_{month2}'
+            col1 = f'{metric}{suffix1}'
+            col2 = f'{metric}{suffix2}'
             comparison[f'{metric}_change'] = comparison.apply(
                 lambda row: calculate_percentage_change(row[col1], row[col2]), axis=1
             )
         
-        # Sort by total revenue change (descending)
+        # Sort by total revenue change (descending) to prioritize most impactful items
         if 'Item revenue_change' in comparison.columns:
             comparison = comparison.sort_values('Item revenue_change', ascending=False)
         
-        # Take top 50 items to avoid overwhelming the table
-        comparison = comparison.head(50)        # Create table data
+        # Show all items (no limit) - user requested to see complete data
+        # comparison = comparison.head(50)  # Commented out to show all items        # Create table data
         table_data = []
         for _, row in comparison.iterrows():
             row_data = {'Item name': row['Item name']}
             
             for metric in metrics:
-                col1 = f'{metric}_{month1}'
-                col2 = f'{metric}_{month2}'
+                col1 = f'{metric}{suffix1}'
+                col2 = f'{metric}{suffix2}'
                 change_col = f'{metric}_change'
                 
                 # Store actual numeric values for sorting, but format for display
-                row_data[f'{month1}_{metric}'] = row[col1]
-                row_data[f'{month2}_{metric}'] = row[col2]
+                row_data[f'{month1 if month1 != month2 else "Period1"}_{metric}'] = row[col1]
+                row_data[f'{month2 if month1 != month2 else "Period2"}_{metric}'] = row[col2]
                 row_data[f'Change_{metric}'] = row[change_col] / 100  # Convert to decimal for percentage formatting
             
-            table_data.append(row_data)          # Create multi-level columns with proper hierarchy
+            table_data.append(row_data)
+          
+        # Create multi-level columns with proper hierarchy
         columns = [
             {'name': ['', 'Item Name'], 'id': 'Item name', 'type': 'text'}
         ]
         
         for metric in metrics:
+            period1_label = month1 if month1 != month2 else "Period 1"
+            period2_label = month2 if month1 != month2 else "Period 2"
             columns.extend([
-                {'name': [metric, month1], 'id': f'{month1}_{metric}', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
-                {'name': [metric, month2], 'id': f'{month2}_{metric}', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
+                {'name': [metric, period1_label], 'id': f'{month1 if month1 != month2 else "Period1"}_{metric}', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
+                {'name': [metric, period2_label], 'id': f'{month2 if month1 != month2 else "Period2"}_{metric}', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
                 {'name': [metric, '% Change'], 'id': f'Change_{metric}', 'type': 'numeric', 'format': {'specifier': '+.1%'}}
             ])        
         # Style data conditionally for percentage columns (item comparison)

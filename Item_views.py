@@ -187,6 +187,31 @@ def get_longest_sheet_name(file_path):
     longest_sheet = max(sheet_names, key=len)
     return longest_sheet
 
+# Function to clean column names
+def clean_column_names(df):
+    """Clean column names by removing leading/trailing spaces and standardizing case"""
+    if df is None or df.empty:
+        return df
+    
+    # Create a mapping of old column names to new cleaned names
+    column_mapping = {}
+    for col in df.columns:
+        # Remove leading/trailing spaces and convert to standard case
+        cleaned_col = str(col).strip()
+        column_mapping[col] = cleaned_col
+    
+    # Rename columns
+    df = df.rename(columns=column_mapping)
+    
+    # Also clean string data in all columns (remove leading/trailing spaces from cell values)
+    for col in df.columns:
+        if df[col].dtype == 'object':  # String columns
+            df[col] = df[col].astype(str).str.strip()
+            # Convert 'nan' strings back to actual NaN
+            df[col] = df[col].replace('nan', pd.NA)
+    
+    return df
+
 # Function to determine file type and read data with caching
 def read_data_file_cached(file_path):
     cache_path = get_cache_path(file_path)
@@ -195,7 +220,10 @@ def read_data_file_cached(file_path):
     if is_cache_valid(file_path, cache_path):
         print(f"Loading from cache: {os.path.basename(file_path)}")
         try:
-            return pd.read_pickle(cache_path)
+            df = pd.read_pickle(cache_path)
+            # Clean column names even for cached data to ensure consistency
+            df = clean_column_names(df)
+            return df
         except Exception as e:
             print(f"Error loading cache for {os.path.basename(file_path)}: {e}")
             # Fall through to read from source
@@ -220,11 +248,15 @@ def read_data_file_cached(file_path):
         print(f"Unsupported file type: {file_extension}")
         return None
     
-    # Cache the data
+    # Clean column names and data
+    df = clean_column_names(df)
+    print(f"Cleaned columns for {os.path.basename(file_path)}: {list(df.columns)}")
+    
+    # Cache the cleaned data
     try:
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         df.to_pickle(cache_path)
-        print(f"Cached: {os.path.basename(file_path)}")
+        print(f"Cached (cleaned): {os.path.basename(file_path)}")
     except Exception as e:
         print(f"Error caching {os.path.basename(file_path)}: {e}")
     
@@ -258,7 +290,24 @@ print(f"File processing finished in {time.time() - start_time:.2f} seconds")
 if 'all_dfs' in locals():
     # Combine all dataframes if we have any
     if all_dfs:
-        combined_df = pd.concat(all_dfs, ignore_index=True)
+        # Clean and standardize all dataframes before combining
+        cleaned_dfs = []
+        all_columns = set()
+        
+        # First pass: collect all unique column names and clean dataframes
+        for i, df_file in enumerate(all_dfs):
+            if df_file is not None and not df_file.empty:
+                # Clean the dataframe
+                df_cleaned = clean_column_names(df_file)
+                cleaned_dfs.append(df_cleaned)
+                all_columns.update(df_cleaned.columns)
+                print(f"DataFrame {i+1} columns: {list(df_cleaned.columns)}")
+        
+        print(f"All unique columns found: {sorted(all_columns)}")
+        
+        # Combine all cleaned dataframes
+        combined_df = pd.concat(cleaned_dfs, ignore_index=True, sort=False)
+        print(f"Combined dataframe columns: {list(combined_df.columns)}")
         
         # Filter out specific categories
         categories_to_exclude = ['JSP', 'Remove', 'FOC-R', 'EMI', '(blank)', 'PRO', 'WRT', 'Others']
@@ -466,6 +515,7 @@ def get_available_brands():
             brands = df['Brand'].dropna().astype(str).unique().tolist()
             # Filter out empty strings and sort
             brands = [brand for brand in brands if brand.strip() != '' and brand != 'nan']
+            print(f"Available brands found: {len(brands)} - {brands[:10]}...")  # Show first 10 for debugging
             return sorted(brands)
         except Exception as e:
             print(f"Error getting brands: {e}")
@@ -480,6 +530,7 @@ def get_available_categories():
             categories = df['Category'].dropna().astype(str).unique().tolist()
             # Filter out empty strings and sort
             categories = [cat for cat in categories if cat.strip() != '' and cat != 'nan']
+            print(f"Available categories found: {len(categories)} - {categories[:10]}...")  # Show first 10 for debugging
             return sorted(categories)
         except Exception as e:
             print(f"Error getting categories: {e}")
@@ -502,6 +553,7 @@ def get_available_days():
 def filter_data(month1, month2, month1_days, month2_days, brand_filter, category_filter, day_filter):
     """Filter data based on selected criteria"""
     if df.empty:
+        print("DataFrame is empty")
         return pd.DataFrame(), pd.DataFrame()
     
     try:
@@ -509,9 +561,16 @@ def filter_data(month1, month2, month1_days, month2_days, brand_filter, category
         df_filtered = df.copy()
         df_filtered['Month_Year'] = df_filtered['Month'].astype(str) + ' ' + df_filtered['Year'].astype(str)
         
+        print(f"Total rows before month filtering: {len(df_filtered)}")
+        print(f"Available months: {df_filtered['Month_Year'].unique()}")
+        print(f"Filtering for months: {month1}, {month2}")
+        
         # Filter by months
         df_month1 = df_filtered[df_filtered['Month_Year'] == month1].copy()
         df_month2 = df_filtered[df_filtered['Month_Year'] == month2].copy()
+        
+        print(f"Rows for {month1}: {len(df_month1)}")
+        print(f"Rows for {month2}: {len(df_month2)}")
         
         # Clean filter lists - remove SELECT_ALL from filters if present
         month1_days = [day for day in (month1_days or []) if day != 'SELECT_ALL']
@@ -519,6 +578,13 @@ def filter_data(month1, month2, month1_days, month2_days, brand_filter, category
         brand_filter = [brand for brand in (brand_filter or []) if brand != 'SELECT_ALL']
         category_filter = [cat for cat in (category_filter or []) if cat != 'SELECT_ALL']
         day_filter = [day for day in (day_filter or []) if day != 'SELECT_ALL']
+        
+        print(f"Applied filters:")
+        print(f"  Brand filter: {brand_filter}")
+        print(f"  Category filter: {category_filter}")
+        print(f"  Day filter: {day_filter}")
+        print(f"  Month1 days: {month1_days}")
+        print(f"  Month2 days: {month2_days}")
         
         # Handle parent day filters first (month-specific day filtering)
         # Check if parent day filters are active (not empty)
@@ -530,7 +596,9 @@ def filter_data(month1, month2, month1_days, month2_days, brand_filter, category
             try:
                 day_values = [int(day) for day in month1_days]
                 if day_values:
+                    print(f"Filtering {month1} for days: {day_values}")
                     df_month1 = df_month1[df_month1['Day'].astype(float).astype(int).isin(day_values)]
+                    print(f"Rows after day filter for {month1}: {len(df_month1)}")
             except ValueError as ve:
                 print(f"Invalid month1 day filter values: {month1_days}, error: {ve}")
         
@@ -539,7 +607,9 @@ def filter_data(month1, month2, month1_days, month2_days, brand_filter, category
             try:
                 day_values = [int(day) for day in month2_days]
                 if day_values:
+                    print(f"Filtering {month2} for days: {day_values}")
                     df_month2 = df_month2[df_month2['Day'].astype(float).astype(int).isin(day_values)]
+                    print(f"Rows after day filter for {month2}: {len(df_month2)}")
             except ValueError as ve:
                 print(f"Invalid month2 day filter values: {month2_days}, error: {ve}")
         
@@ -549,28 +619,68 @@ def filter_data(month1, month2, month1_days, month2_days, brand_filter, category
             try:
                 day_values = [int(day) for day in day_filter]
                 if day_values:  # Only filter if there are valid day values
+                    print(f"Filtering both months for days: {day_values}")
                     df_month1 = df_month1[df_month1['Day'].astype(float).astype(int).isin(day_values)]
                     df_month2 = df_month2[df_month2['Day'].astype(float).astype(int).isin(day_values)]
+                    print(f"Rows after child day filter - {month1}: {len(df_month1)}, {month2}: {len(df_month2)}")
             except ValueError as ve:
                 print(f"Invalid day filter values: {day_filter}, error: {ve}")
         
         # Handle multi-select filters for brand and category
         # Brand filter - only apply if not empty
         if brand_filter and len(brand_filter) > 0:
-            # Convert Brand column to string for comparison
+            print(f"Available brands in {month1}: {sorted(df_month1['Brand'].astype(str).unique())}")
+            print(f"Available brands in {month2}: {sorted(df_month2['Brand'].astype(str).unique())}")
+            print(f"Requested brand filter: {brand_filter}")
+            
+            # Check if any of the requested brands exist in the data
+            brands_in_month1 = set(df_month1['Brand'].astype(str).unique())
+            brands_in_month2 = set(df_month2['Brand'].astype(str).unique())
+            requested_brands = set(brand_filter)
+            
+            print(f"Brands found in {month1}: {requested_brands.intersection(brands_in_month1)}")
+            print(f"Brands found in {month2}: {requested_brands.intersection(brands_in_month2)}")
+            
+            # Convert Brand column to string for comparison and apply filter
             df_month1 = df_month1[df_month1['Brand'].astype(str).isin(brand_filter)]
             df_month2 = df_month2[df_month2['Brand'].astype(str).isin(brand_filter)]
+            print(f"Rows after brand filter - {month1}: {len(df_month1)}, {month2}: {len(df_month2)}")
             
         # Category filter - only apply if not empty
         if category_filter and len(category_filter) > 0:
-            # Convert Category column to string for comparison
+            print(f"Available categories in {month1}: {sorted(df_month1['Category'].astype(str).unique())}")
+            print(f"Available categories in {month2}: {sorted(df_month2['Category'].astype(str).unique())}")
+            print(f"Requested category filter: {category_filter}")
+            
+            # Check if any of the requested categories exist in the data
+            categories_in_month1 = set(df_month1['Category'].astype(str).unique())
+            categories_in_month2 = set(df_month2['Category'].astype(str).unique())
+            requested_categories = set(category_filter)
+            
+            print(f"Categories found in {month1}: {requested_categories.intersection(categories_in_month1)}")
+            print(f"Categories found in {month2}: {requested_categories.intersection(categories_in_month2)}")
+            
+            # Convert Category column to string for comparison and apply filter
             df_month1 = df_month1[df_month1['Category'].astype(str).isin(category_filter)]
             df_month2 = df_month2[df_month2['Category'].astype(str).isin(category_filter)]
+            print(f"Rows after category filter - {month1}: {len(df_month1)}, {month2}: {len(df_month2)}")
+            
+            # Additional debugging: Show sample data that matches
+            if len(df_month1) > 0:
+                print(f"Sample data from {month1} after filtering:")
+                print(df_month1[['Brand', 'Category']].head(3).to_string())
+            if len(df_month2) > 0:
+                print(f"Sample data from {month2} after filtering:")
+                print(df_month2[['Brand', 'Category']].head(3).to_string())
+        
+        print(f"Final results - {month1}: {len(df_month1)} rows, {month2}: {len(df_month2)} rows")
         
         return df_month1, df_month2
         
     except Exception as e:
         print(f"Error filtering data: {e}")
+        import traceback
+        traceback.print_exc()
         return pd.DataFrame(), pd.DataFrame()
 
 def calculate_percentage_change(val1, val2):
@@ -605,6 +715,20 @@ app.layout = html.Div([
         html.P("Compare performance metrics between two months with detailed analytics",
                style={'margin': '10px 0 0 0', 'fontSize': '1.1rem', 'opacity': '0.9'})
     ], className='dashboard-header'),
+    
+    # Tips section
+    html.Div([
+        html.Details([
+            html.Summary("💡 How to Use This Dashboard", 
+                        style={'fontWeight': 'bold', 'fontSize': '16px', 'cursor': 'pointer', 'marginBottom': '10px'}),
+            html.Div([
+                html.P("📍 **Different Month Comparison**: Select two different months to compare their performance.", style={'margin': '5px 0'}),
+                html.P("📍 **Same Month Comparison**: Select the same month twice, then use 'Select Days for First Month' and 'Select Days for Second Month' to create distinct periods (e.g., Week 1 vs Week 2).", style={'margin': '5px 0'}),
+                html.P("📍 **Filtering**: Use brand, category, and day filters to focus on specific data. Use 'Select All' to include everything or clear filters.", style={'margin': '5px 0'}),
+                html.P("📍 **Empty Results**: If one period has no data, it will show 0 values for comparison. If both periods are empty, you'll see helpful suggestions.", style={'margin': '5px 0'})
+            ], style={'backgroundColor': '#f8f9fa', 'padding': '15px', 'borderRadius': '5px', 'marginTop': '10px'})
+        ])
+    ], style={'marginBottom': '20px', 'padding': '10px', 'border': '1px solid #e0e0e0', 'borderRadius': '8px', 'backgroundColor': '#fafafa'}),
     
     html.Div([
         html.H3("🔧 Filters & Comparison Settings", style={'marginBottom': '20px', 'color': '#333'}),
@@ -692,7 +816,7 @@ app.layout = html.Div([
         html.H3("📊 Category Comparison", 
                 style={'marginBottom': '20px', 'color': '#333'}),
         html.Div([
-            html.P("📋 Select two different months and adjust filters to see comparison data.", 
+            html.P("📋 Select two months and adjust filters to see comparison data. For same-month comparisons, use the month-specific day filters to create distinct periods.", 
                    style={'textAlign': 'center', 'color': '#666', 'fontSize': '16px', 'padding': '20px'})
         ], id='category-comparison-table')
     ], className='comparison-section'),
@@ -701,7 +825,7 @@ app.layout = html.Div([
         html.H3("🛍️ Item Name Comparison", 
                 style={'marginBottom': '20px', 'color': '#333'}),
         html.Div([
-            html.P("📋 Select two different months and adjust filters to see comparison data.", 
+            html.P("📋 Select two months and adjust filters to see comparison data. For same-month comparisons, use the month-specific day filters to create distinct periods.", 
                    style={'textAlign': 'center', 'color': '#666', 'fontSize': '16px', 'padding': '20px'})
         ], id='item-comparison-table')
     ], className='comparison-section')
@@ -729,14 +853,79 @@ def update_comparison_tables(month1, month2, month1_days, month2_days, brand_fil
     category_filter = category_filter or []
     day_filter = day_filter or []
     
+    print(f"\n=== CALLBACK DEBUG ===")
+    print(f"Selected filters:")
+    print(f"  Month1: {month1}")
+    print(f"  Month2: {month2}")
+    if month1 == month2:
+        print(f"  🔄 SAME MONTH COMPARISON DETECTED")
+    print(f"  Brand filter: {brand_filter}")
+    print(f"  Category filter: {category_filter}")
+    print(f"  Day filter: {day_filter}")
+    print(f"  Month1 days: {month1_days}")
+    print(f"  Month2 days: {month2_days}")
+    
     # Filter data
     df_month1, df_month2 = filter_data(month1, month2, month1_days, month2_days, brand_filter, category_filter, day_filter)
     
-    if df_month1.empty or df_month2.empty:
+    # Check if BOTH months are empty (only return error if no data exists at all)
+    if df_month1.empty and df_month2.empty:
+        # Better error handling - check what filters are actually applied
+        has_brand_filter = brand_filter and len([b for b in brand_filter if b != 'SELECT_ALL']) > 0
+        has_category_filter = category_filter and len([c for c in category_filter if c != 'SELECT_ALL']) > 0
+        has_day_filter = day_filter and len([d for d in day_filter if d != 'SELECT_ALL']) > 0
+        has_month1_days = month1_days and len([d for d in month1_days if d != 'SELECT_ALL']) > 0
+        has_month2_days = month2_days and len([d for d in month2_days if d != 'SELECT_ALL']) > 0
+        
+        error_msg = "❌ No data available for the selected criteria in either month."
+        
         if month1 == month2:
-            return html.Div("No data available for the selected criteria. When comparing the same month, please ensure you have selected different day filters for each period."), html.Div("No data available for the selected criteria. When comparing the same month, please ensure you have selected different day filters for each period.")
+            # Same month comparison - need different criteria to distinguish periods
+            if not has_month1_days and not has_month2_days and not has_day_filter:
+                error_msg += " \n\n💡 **For same month comparisons:** Use the 'Select Days for First Month' and 'Select Days for Second Month' filters to create distinct time periods (e.g., first half vs second half of the month)."
+            elif has_month1_days or has_month2_days:
+                available_days = sorted([str(d) for d in df[df['Month_Year'] == month1]['Day'].unique() if not pd.isna(d)])
+                if available_days:
+                    error_msg += f" \n\n📅 **Available days in {month1}:** {', '.join(available_days)}. Please select days that exist in the data."
+                else:
+                    error_msg += f" \n\n⚠️ No valid days found in {month1}. Please check your data."
+            else:
+                error_msg += " \n\n🔍 **Try these solutions:**\n• Remove some filters to broaden your selection\n• Check if the selected brands/categories exist in this month\n• Verify the day ranges are valid"
         else:
-            return html.Div("No data available for the selected criteria."), html.Div("No data available for the selected criteria.")
+            # Different months - check specific filter issues
+            filter_info = []
+            if has_brand_filter:
+                filter_info.append(f"Brand: {[b for b in brand_filter if b != 'SELECT_ALL']}")
+            if has_category_filter:
+                filter_info.append(f"Category: {[c for c in category_filter if c != 'SELECT_ALL']}")
+            if has_day_filter:
+                filter_info.append(f"Days: {[d for d in day_filter if d != 'SELECT_ALL']}")
+            
+            if filter_info:
+                error_msg += f" \n\n🔧 **Applied filters:** {', '.join(filter_info)}.\n\n💡 **Try these solutions:**\n• Use 'Select All' to remove restrictive filters\n• Check if the selected items exist in both months\n• Consider broadening your selection criteria"
+            else:
+                error_msg += f" \n\n⚠️ No data found in either {month1} or {month2}. Please verify your data contains these months."
+        
+        print(f"ERROR: {error_msg}")
+        # Create a nicer error display
+        error_display = html.Div([
+            html.H4("🚫 No Data Found", style={'color': '#d32f2f', 'marginBottom': '10px'}),
+            dcc.Markdown(error_msg, style={'whiteSpace': 'pre-line', 'lineHeight': '1.6'})
+        ], style={
+            'padding': '20px', 
+            'border': '2px solid #ffcdd2', 
+            'borderRadius': '8px', 
+            'backgroundColor': '#ffebee',
+            'margin': '20px 0'
+        })
+        return error_display, error_display
+    
+    # If we reach here, at least one month has data, which is what we want
+    # The comparison functions will handle empty dataframes properly by showing 0 values
+    print(f"✅ Proceeding with comparison:")
+    print(f"   {month1}: {len(df_month1)} rows")
+    print(f"   {month2}: {len(df_month2)} rows")
+    print(f"   Note: Empty months will show 0 values in comparison tables")
     
     # Category Comparison
     category_comparison = create_category_comparison(df_month1, df_month2, month1, month2)
@@ -753,16 +942,22 @@ def create_category_comparison(df_month1, df_month2, month1, month2):
         df_month1 = df_month1.copy()
         df_month2 = df_month2.copy()
         
-        df_month1['Category'] = df_month1['Category'].astype(str)
-        df_month2['Category'] = df_month2['Category'].astype(str)
-        
-        # Filter out invalid categories
-        df_month1 = df_month1[df_month1['Category'] != 'nan']
-        df_month2 = df_month2[df_month2['Category'] != 'nan']
-        
-        # Aggregate by category
-        agg_month1 = df_month1.groupby('Category')[metrics].sum().reset_index()
-        agg_month2 = df_month2.groupby('Category')[metrics].sum().reset_index()
+        # Handle empty dataframes - create empty aggregated dataframes if needed
+        if not df_month1.empty:
+            df_month1['Category'] = df_month1['Category'].astype(str)
+            df_month1 = df_month1[df_month1['Category'] != 'nan']
+            agg_month1 = df_month1.groupby('Category')[metrics].sum().reset_index()
+        else:
+            # Create empty dataframe with proper structure
+            agg_month1 = pd.DataFrame(columns=['Category'] + metrics)
+            
+        if not df_month2.empty:
+            df_month2['Category'] = df_month2['Category'].astype(str)
+            df_month2 = df_month2[df_month2['Category'] != 'nan']
+            agg_month2 = df_month2.groupby('Category')[metrics].sum().reset_index()
+        else:
+            # Create empty dataframe with proper structure
+            agg_month2 = pd.DataFrame(columns=['Category'] + metrics)
         
         # Handle same month comparison by creating unique suffixes
         if month1 == month2:
@@ -776,6 +971,10 @@ def create_category_comparison(df_month1, df_month2, month1, month2):
         # Using 'outer' join to include ALL categories from both periods
         # Categories appearing in only one period will show 0 for the missing period
         comparison = pd.merge(agg_month1, agg_month2, on='Category', suffixes=(suffix1, suffix2), how='outer').fillna(0)
+        
+        # If both dataframes were empty, we shouldn't reach here, but just in case
+        if comparison.empty:
+            return html.Div("No category data available for comparison.")
         
         # Calculate percentage changes
         for metric in metrics:
@@ -880,16 +1079,22 @@ def create_item_comparison(df_month1, df_month2, month1, month2):
         df_month1 = df_month1.copy()
         df_month2 = df_month2.copy()
         
-        df_month1['Item name'] = df_month1['Item name'].astype(str)
-        df_month2['Item name'] = df_month2['Item name'].astype(str)
-        
-        # Filter out invalid item names
-        df_month1 = df_month1[df_month1['Item name'] != 'nan']
-        df_month2 = df_month2[df_month2['Item name'] != 'nan']
-        
-        # Aggregate by item name
-        agg_month1 = df_month1.groupby('Item name')[metrics].sum().reset_index()
-        agg_month2 = df_month2.groupby('Item name')[metrics].sum().reset_index()
+        # Handle empty dataframes - create empty aggregated dataframes if needed
+        if not df_month1.empty:
+            df_month1['Item name'] = df_month1['Item name'].astype(str)
+            df_month1 = df_month1[df_month1['Item name'] != 'nan']
+            agg_month1 = df_month1.groupby('Item name')[metrics].sum().reset_index()
+        else:
+            # Create empty dataframe with proper structure
+            agg_month1 = pd.DataFrame(columns=['Item name'] + metrics)
+            
+        if not df_month2.empty:
+            df_month2['Item name'] = df_month2['Item name'].astype(str)
+            df_month2 = df_month2[df_month2['Item name'] != 'nan']
+            agg_month2 = df_month2.groupby('Item name')[metrics].sum().reset_index()
+        else:
+            # Create empty dataframe with proper structure
+            agg_month2 = pd.DataFrame(columns=['Item name'] + metrics)
         
         # Handle same month comparison by creating unique suffixes
         if month1 == month2:
@@ -903,6 +1108,10 @@ def create_item_comparison(df_month1, df_month2, month1, month2):
         # Using 'outer' join to include ALL items from both periods
         # Items appearing in only one period will show 0 for the missing period
         comparison = pd.merge(agg_month1, agg_month2, on='Item name', suffixes=(suffix1, suffix2), how='outer').fillna(0)
+        
+        # If both dataframes were empty, we shouldn't reach here, but just in case
+        if comparison.empty:
+            return html.Div("No item data available for comparison.")
         
         # Calculate percentage changes
         for metric in metrics:
@@ -1023,17 +1232,15 @@ def create_item_comparison(df_month1, df_month2, month1, month2):
     [State('brand-filter', 'options')]
 )
 def handle_brand_select_all(selected_values, options):
-    if selected_values and 'SELECT_ALL' in selected_values:
+    if not selected_values:
+        return []
+    
+    if 'SELECT_ALL' in selected_values:
         # Get all brand values (excluding SELECT_ALL)
         all_brands = [opt['value'] for opt in options if opt['value'] != 'SELECT_ALL']
-        
-        # If SELECT_ALL was just added, select all brands
-        if len(selected_values) == 1:  # Only SELECT_ALL is selected
-            return all_brands
-        else:
-            # If SELECT_ALL is selected along with other items, deselect all
-            return []
-    return selected_values or []
+        return all_brands
+    
+    return selected_values
 
 @app.callback(
     Output('category-filter', 'value'),
@@ -1041,17 +1248,15 @@ def handle_brand_select_all(selected_values, options):
     [State('category-filter', 'options')]
 )
 def handle_category_select_all(selected_values, options):
-    if selected_values and 'SELECT_ALL' in selected_values:
+    if not selected_values:
+        return []
+    
+    if 'SELECT_ALL' in selected_values:
         # Get all category values (excluding SELECT_ALL)
         all_categories = [opt['value'] for opt in options if opt['value'] != 'SELECT_ALL']
-        
-        # If SELECT_ALL was just added, select all categories
-        if len(selected_values) == 1:  # Only SELECT_ALL is selected
-            return all_categories
-        else:
-            # If SELECT_ALL is selected along with other items, deselect all
-            return []
-    return selected_values or []
+        return all_categories
+    
+    return selected_values
 
 @app.callback(
     Output('day-filter', 'value'),
@@ -1059,17 +1264,15 @@ def handle_category_select_all(selected_values, options):
     [State('day-filter', 'options')]
 )
 def handle_day_select_all(selected_values, options):
-    if selected_values and 'SELECT_ALL' in selected_values:
+    if not selected_values:
+        return []
+    
+    if 'SELECT_ALL' in selected_values:
         # Get all day values (excluding SELECT_ALL)
         all_days = [opt['value'] for opt in options if opt['value'] != 'SELECT_ALL']
-        
-        # If SELECT_ALL was just added, select all days
-        if len(selected_values) == 1:  # Only SELECT_ALL is selected
-            return all_days
-        else:
-            # If SELECT_ALL is selected along with other items, deselect all
-            return []
-    return selected_values or []
+        return all_days
+    
+    return selected_values
 
 @app.callback(
     Output('month1-days-filter', 'value'),
@@ -1077,17 +1280,15 @@ def handle_day_select_all(selected_values, options):
     [State('month1-days-filter', 'options')]
 )
 def handle_month1_days_select_all(selected_values, options):
-    if selected_values and 'SELECT_ALL' in selected_values:
+    if not selected_values:
+        return []
+    
+    if 'SELECT_ALL' in selected_values:
         # Get all day values (excluding SELECT_ALL)
         all_days = [opt['value'] for opt in options if opt['value'] != 'SELECT_ALL']
-        
-        # If SELECT_ALL was just added, select all days
-        if len(selected_values) == 1:  # Only SELECT_ALL is selected
-            return all_days
-        else:
-            # If SELECT_ALL is selected along with other items, deselect all
-            return []
-    return selected_values or []
+        return all_days
+    
+    return selected_values
 
 @app.callback(
     Output('month2-days-filter', 'value'),
@@ -1095,17 +1296,15 @@ def handle_month1_days_select_all(selected_values, options):
     [State('month2-days-filter', 'options')]
 )
 def handle_month2_days_select_all(selected_values, options):
-    if selected_values and 'SELECT_ALL' in selected_values:
+    if not selected_values:
+        return []
+    
+    if 'SELECT_ALL' in selected_values:
         # Get all day values (excluding SELECT_ALL)
         all_days = [opt['value'] for opt in options if opt['value'] != 'SELECT_ALL']
-        
-        # If SELECT_ALL was just added, select all days
-        if len(selected_values) == 1:  # Only SELECT_ALL is selected
-            return all_days
-        else:
-            # If SELECT_ALL is selected along with other items, deselect all
-            return []
-    return selected_values or []
+        return all_days
+    
+    return selected_values
 @app.callback(
     [Output('day-filter', 'disabled'),
      Output('day-filter', 'placeholder')],

@@ -1,0 +1,44 @@
+# Requirements for Report Automation Project
+# Generated from analysis of all .py and .ipynb files
+
+# Data manipulation and analysis
+pandas>=1.3.0
+numpy>=1.20.0
+
+# Excel file handling
+openpyxl>=3.0.0
+xlwings>=0.24.0
+
+# Web dashboards and visualization
+dash>=2.0.0
+plotly>=5.0.0
+
+# Graph visualization
+graphviz>=0.20.0
+
+# Standard library modules (usually included with Python, but listed for clarity)
+# These are typically not needed in requirements.txt but included for documentation:
+# json (built-in)
+# os (built-in)
+# datetime (built-in)
+# calendar (built-in)
+# glob (built-in)
+# time (built-in)
+# copy (built-in)
+# re (built-in)
+# warnings (built-in)
+# random (built-in)
+# subprocess (built-in)
+
+# Note: The following are Python built-in modules and don't need to be installed:
+# - json
+# - os  
+# - datetime
+# - calendar
+# - glob
+# - time
+# - copy
+# - re
+# - warnings
+# - random
+# - subprocess

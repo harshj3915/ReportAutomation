@@ -8,198 +8,116 @@ os.environ["PATH"] += os.pathsep + r"C:\Program Files\Graphviz\bin"
 scenarios = {
     "Scenario 1: Online Order Fulfilled from Mall Store as Home Delivery": {
         "Current Flow": [
-            "Customer places online order.",
-            "Order is for Home Delivery.",
-            "Order is put on hold in mall store through ERP.",
-            "Once confirmed for delivery by the order system, stock is deducted from mall store.",
-            "Mall store picks, packs, and dispatches the order via courier.",
-            "Sales are recorded in designated store system.",
-            "Invoice generated from order system with customer shipping and billing address.",
-            "Post-delivery, sales are recorded in ERP."
+            "Customer Placed Online Order",
+            "Customer select Home Delivery",
+            "Order Allocated to mall store & stock reserved in system",
+            "Order shipped and Invoice generated",
+            
+            "Invoice contains Customer Shipping and Billing address",
+            "Post Delivery sales accounted in Mall store"
         ],
         "Proposed Flow": [
-            "Customer places online order.",
-            "Order is for Home Delivery.",
-            "Order is allocated to mall store.",
-            "Stock is virtually transferred to a designated high street store.",
-            "Order is shipped and invoice is generated.",
-            "Shipping and billing address remain the customer's.",
-            "Sales are shown as fulfilled from designated high street store in ERP."
+            "Customer Placed Online Order",
+            "Customer select Home Delivery",
+            "Order Allocated to mall store & stock virtually transferred to high street store",
+
+            "Order shipped and Invoice generated",
+            "Customer Shipping and Billing address is mentioned on the Invoice",
+            "Post Delivery sales accounted in Highstreet store"
         ]
     },
-
-    "Scenario 2: Online Order Fulfilled by Supplier – No Change": {
+    "Scenario 2: Online Order Collected from Mall Store by Customer (Click & Collect)": {
         "Current Flow": [
-            "Customer places order.",
-            "Supplier directly ships to the customer.",
-            "Sales are recorded in designated store system.",
-            "Invoice generated from order system with customer's shipping and billing address."
+            "Customer Placed Online Order",
+            "Customer select Click& Collect method",
+            "Order Allocated to mall store & stock reserved in system",
+
+            "Order shipped and Invoice generated",
+            "Invoice contains Mall Store Shipping and Customer Billing address",
+            "Post collection sales accounted in Mall store"
         ],
         "Proposed Flow": [
-            "Customer places order.",
-            "Supplier directly ships to the customer.",
-            "Sales are recorded in designated store system.",
-            "Invoice generated from order system with customer's shipping and billing address."
+            "Customer Placed Online Order",
+            "Customer select Click& Collect method",
+            "Order Allocated to mall store & stock virtually transferred to high street store",
+            "Order shipped and Invoice generated",
+
+            "Invoice contains Highstreet Store Shipping and Customer Billing address",
+            "Post Delivery sales accounted in Highstreet store"
         ]
     },
-
-    "Scenario 3 Option A: Click & Collect from Mall Store": {
+    "Scenario 3: Endless Aisle - Ordered in Store A, Collected from Mall Store B (Click & Collect)": {
         "Current Flow": [
-            "Customer places online order.",
-            "Order is held in mall store via ERP.",
-            "Stock is deducted on customer pickup confirmation.",
-            "Customer collects from the mall store.",
-            "Sales are recorded in designated store system.",
-            "Invoice is generated showing mall store as shipping address and customer as billing address."
+            "Store Staff assist customer to place Order",
+            "Choose store based on availability and place Click & Collect order",
+            "Order Allocated to mall store & stock reserved in system",
+            "Customer collect the order from Mall store and Invoice generated",
+
+            "Invoice contains Mall Store Shipping address and Customer Billing address",
+            "Post collection sales accounted in Mall store"
         ],
         "Proposed Flow": [
-            "Customer places online order.",
-            "Order is held in mall store via ERP.",
-            "Stock is deducted on customer pickup confirmation.",
-            "Customer collects from the mall store.",
-            "Sales are recorded in designated store system.",
-            "Invoice is generated showing mall store as shipping address and customer as billing address."
+            "Store Staff assist customer to place Order",
+            "Choose store based on availability and place Click & Collect order",
+            "Order Allocated to mall store & stock virtually transferred to high street store",
+            "Customer collect the order from Mall store and Invoice generated",
+            "Invoice contains Highstreet Store Shipping and Customer Billing address",
+            "Post collection accounted in Highstreet store"
         ]
     },
-
-    "Scenario 3 Option B: Click & Collect – With Virtual Transfer": {
+    "Scenario 4: Endless Aisle - Ordered & Collected from Same Mall Store (Click & Collect)": {
         "Current Flow": [
-            "Order is held in mall store via ERP.",
-            "Deducted from mall store on customer collection.",
-            "Customer picks up from mall store.",
-            "Sales recorded in designated store system."
+            "Store Staff assist customer to place Order",
+            "Choose own store and place Click & Collect order",
+            "Order Allocated to mall store & stock reserved in system",
+            "Customer collect the order from same mall store and Invoice generated",
+
+            "Invoice contains Mall Store Shipping address and Customer Billing address",
+            "Post collection sales accounted in Mall store"
         ],
         "Proposed Flow": [
-            "Order held by mall store.",
-            "Stock virtually transferred to designated high street store.",
-            "Deducted from designated store when customer picks up.",
-            "Sales shown under high street store.",
-            "Invoice shows shipping from high street store; billing to customer.",
-            "Tracked via mystery shopper for verification."
+            "Store Staff assist customer to place Order",
+            "Choose own store and place Click & Collect order",
+            "Order Allocated to same mall store & stock virtually transferred to high street store",
+            "Customer collect the order from same mall store and Invoice generated",
+            "Invoice contains Highstreet Store Shipping address and Customer Billing address",
+            "Post collection accounted in Highstreet store"
         ]
     },
-
-    "Scenario 4 Option A: Ordered in Store A, Collected from Mall Store B": {
+    "Scenario 5: Endless Aisle - Ordered in Store A, Delivered from Mall B Store (Home Delivery)": {
         "Current Flow": [
-            "Order held in mall store.",
-            "Deducted on pickup.",
-            "Collected by customer.",
-            "Sales recorded under designated store."
+            "Mall Store Staff assist customer to place Order",
+            "Choose home delivery option",
+            "Order Allocated to mall store & stock reserved in system",
+            "Order shipped and Invoice generated",
+            "Invoice contains Customer Shipping and Billing address",
+            "Post Delivery sales accounted in Mall store"
         ],
         "Proposed Flow": [
-            "Order held in mall store.",
-            "Virtually transferred to designated high street store.",
-            "Deducted on pickup from designated store.",
-            "Invoice shows mall store as shipping location.",
-            "Customer as billing address."
+            "Store Staff assist customer to place Order",
+            "Choose home delivery option",
+            "Order Allocated to mall store & stock virtually transferred to high street store",
+            "Order shipped and Invoice generated",
+            "Invoice contains Customer Shipping and Billing address",
+            "Post delivery sales accounted in Highstreet store"
         ]
     },
-
-    "Scenario 4 Option B: Same as 4A but Invoice from Designated Store": {
+    "Scenario 6: Endless Aisle - Ordered in Store A, Delivered from Same Mall Store (Home Delivery)": {
         "Current Flow": [
-            "Order held in mall store.",
-            "Deducted on pickup.",
-            "Collected by customer.",
-            "Sales recorded under designated store."
+            "Store Staff assist customer to place Order",
+            "Choose home delivery option",
+            "Order Allocated to mall store & stock reserved in system",
+            "Order shipped and Invoice generated",
+            "Invoice contains Customer Shipping and Billing address",
+            "Post Delivery sales accounted in Mall store"
         ],
         "Proposed Flow": [
-            "Order held in mall store.",
-            "Virtually transferred to designated high street store.",
-            "Deducted on pickup from designated store.",
-            "Invoice shows designated high street store as shipping address.",
-            "Mystery shopper used for verification."
-        ]
-    },
-
-    "Scenario 5 Option A: Ordered & Collected from Same Mall Store": {
-        "Current Flow": [
-            "Order held in same mall store.",
-            "Deducted on customer pickup.",
-            "Collected from same store.",
-            "Invoice shows mall store as shipping address and customer as billing address."
-        ],
-        "Proposed Flow": [
-            "Order held in same mall store.",
-            "Deducted on customer pickup.",
-            "Collected from same store.",
-            "Invoice shows mall store as shipping address and customer as billing address."
-        ]
-    },
-
-    "Scenario 5 Option B: Ordered & Collected with Virtual Transfer": {
-        "Current Flow": [
-            "Order held in mall store.",
-            "Deducted on customer pickup.",
-            "Collected from mall store.",
-            "Sales recorded under designated store."
-        ],
-        "Proposed Flow": [
-            "Order virtually transferred to designated high street store.",
-            "Deducted from designated store upon pickup.",
-            "Collected from mall store.",
-            "Invoice shows designated store as shipping origin.",
-            "Verification possible via mystery shopper."
-        ]
-    },
-
-    "Scenario 6 Option A: Ordered in Store A, Delivered from Mall Store A": {
-        "Current Flow": [
-            "Order held in mall store.",
-            "Deducted on shipping confirmation.",
-            "Picked, packed, and shipped from mall store by courier.",
-            "Invoice shows customer shipping and billing address."
-        ],
-        "Proposed Flow": [
-            "Order held in mall store.",
-            "Deducted on shipping confirmation.",
-            "Picked, packed, and shipped from mall store by courier.",
-            "Invoice shows customer shipping and billing address."
-        ]
-    },
-
-    "Scenario 6 Option B: Delivered via Virtual Transfer": {
-        "Current Flow": [
-            "Order held in mall store.",
-            "Deducted on shipping confirmation.",
-            "Picked, packed, and shipped from mall store by courier.",
-            "Invoice shows customer shipping and billing address."
-        ],
-        "Proposed Flow": [
-            "Stock virtually transferred to designated high street store.",
-            "Deducted from designated store on shipment confirmation.",
-            "Still physically packed and dispatched from mall store.",
-            "Invoice shows customer addresses.",
-            "Traced via mystery shopper if needed."
-        ]
-    },
-
-    "Scenario 7 Option A: Ordered in Store A, Delivered from Mall Store B": {
-        "Current Flow": [
-            "Order held and fulfilled from mall store B.",
-            "Shipped via courier.",
-            "Invoice from order system with customer address details."
-        ],
-        "Proposed Flow": [
-            "Order held and fulfilled from mall store B.",
-            "Shipped via courier.",
-            "Invoice from order system with customer address details."
-        ]
-    },
-
-    "Scenario 7 Option B: Delivered via Virtual Transfer from Store B": {
-        "Current Flow": [
-            "Order held in mall store via ERP.",
-            "Deducted from mall store on delivery confirmation.",
-            "Sales recorded in designated store system.",
-            "Order shipped by mall store B.",
-            "Invoice shows customer shipping and billing address."
-        ],
-        "Proposed Flow": [
-            "Order virtually transferred to designated high street store.",
-            "Deducted from designated store after shipping.",
-            "Mall store B dispatches the order.",
-            "Customer shipping and billing address remain same.",
-            "Traced via mystery shopper."
+            "Store Staff assist customer to place Order",
+            "Choose home delivery option",
+            "Order Allocated to mall store & stock virtually transferred to high street store",
+            "Order shipped and Invoice generated",
+            "Invoice contains Customer Shipping and Billing address",
+            "Post delivery sales accounted in Highstreet store"
         ]
     }
 }
@@ -210,12 +128,31 @@ def wrap_text(text, width):
     lines = textwrap.wrap(text, width=width)
     return '\\n'.join(lines)
 
+def calculate_spacing(flow_steps, width_constraint=16):
+    """Calculate appropriate spacing based on content length"""
+    total_content = sum(len(step) for step in flow_steps)
+    # More content means smaller spacing to fit in the width constraint
+    if total_content > 300:
+        return "0.6"  # Small spacing for verbose scenarios
+    elif total_content > 200:
+        return "0.9"  # Medium spacing
+    else:
+        return "1.2"  # Larger spacing for concise scenarios
+
 # Create left-to-right flowcharts for each scenario with better readability
 def create_flowcharts(scenarios):
     for scenario, flows in scenarios.items():
         dot = Digraph(comment=scenario, format='png')
+        
+        # Calculate appropriate spacing based on content length
+        current_ranksep = calculate_spacing(flows['Current Flow'])
+        proposed_ranksep = calculate_spacing(flows['Proposed Flow'])
+        
+        # Use the smaller of the two to ensure both flows fit well
+        ranksep = min(current_ranksep, proposed_ranksep)
+        
         dot.attr(rankdir='LR', size='16,8', dpi='300', bgcolor='white', 
-                 nodesep='0.4', ranksep='0.8')
+                 nodesep='0.4', ranksep=ranksep)
         dot.attr('node', shape='box', style='filled', fontsize='13', fontname='Arial')
         dot.attr('edge', fontsize='10', fontname='Arial')
         
@@ -229,11 +166,14 @@ def create_flowcharts(scenarios):
             
             prev = None
             for i, step in enumerate(flows['Proposed Flow']):
-                node = f'P{i}'
-                # Break long text into multiple lines for compact boxes
+                node = f'P{i}'                # Break long text into multiple lines for compact boxes
                 wrapped_text = wrap_text(step, 18)
+                # Calculate node size based on text length
+                text_length = len(step)
+                width = max(1.3, min(2.0, 1.3 + (text_length / 100)))
+                height = max(0.8, min(1.5, 0.8 + (len(wrapped_text.split('\\n')) * 0.15)))
                 c.node(node, wrapped_text, fillcolor='#E6FFE6', style='filled,rounded',
-                      fontsize='12', fontname='Arial', margin='0.15,0.15', width='1.5', height='1.0')
+                      fontsize='12', fontname='Arial', margin='0.15,0.15', width=str(width), height=str(height))
                 if prev:
                     c.edge(prev, node, color='#006633', penwidth='1.5')
                 prev = node
@@ -245,14 +185,17 @@ def create_flowcharts(scenarios):
             
             prev = None
             for i, step in enumerate(flows['Current Flow']):
-                node = f'C{i}'
-                # Break long text into multiple lines for compact boxes
+                node = f'C{i}'                # Break long text into multiple lines for compact boxes
                 wrapped_text = wrap_text(step, 18)
                 # Use a different node ID for Scenario 2 to avoid conflicts
                 if is_scenario_2:
                     node = f'C{i}_current'
+                # Calculate node size based on text length
+                text_length = len(step)
+                width = max(1.3, min(2.0, 1.3 + (text_length / 100)))
+                height = max(0.8, min(1.5, 0.8 + (len(wrapped_text.split('\\n')) * 0.15)))
                 c.node(node, wrapped_text, fillcolor='#E6F3FF', style='filled,rounded', 
-                      fontsize='12', fontname='Arial', margin='0.15,0.15', width='1.5', height='1.0')
+                      fontsize='12', fontname='Arial', margin='0.15,0.15', width=str(width), height=str(height))
                 if prev:
                     c.edge(prev, node, color='#0066CC', penwidth='1.5')
                 prev = node

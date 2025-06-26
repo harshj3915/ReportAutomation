@@ -1,7 +1,7 @@
 import json
 import pandas as pd
 import dash
-from dash import dcc, html, dash_table, Input, Output, callback
+from dash import dcc, html, dash_table, Input, Output, State, callback
 import plotly.express as px
 from datetime import datetime, date
 import os
@@ -609,12 +609,25 @@ app.layout = html.Div([
         # Filter Selection Note
         html.Div([
             html.P("Note: You can either filter by specific invoice days OR by weeks, but not both at the same time.", 
-                   style={'textAlign': 'center', 'fontStyle': 'italic', 'color': '#666', 'marginBottom': 15})
+                   style={'textAlign': 'center', 'fontStyle': 'italic', 'color': '#666', 'marginBottom': 10}),
+            html.P("💡 Tip: Use 'Select All' to quickly select all options, then uncheck individual items you don't want. Use 'Clear All' to deselect everything.", 
+                   style={'textAlign': 'center', 'fontStyle': 'italic', 'color': '#007bff', 'marginBottom': 15, 'fontSize': '12px'})
         ]),
         
         html.Div([
             html.Div([
                 html.Label("Invoice Day:", style={'fontWeight': 'bold', 'marginBottom': 5}),
+                html.Div([
+                    dcc.Checklist(
+                        id='invoice-day-select-all',
+                        options=[{'label': 'Select All', 'value': 'select_all'}],
+                        value=[],
+                        style={'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px'}
+                    ),
+                    html.Button('Clear All', id='invoice-day-clear-all', 
+                               style={'fontSize': '10px', 'padding': '2px 6px', 'border': '1px solid #ccc', 
+                                     'borderRadius': '3px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer'})
+                ], style={'marginBottom': 5}),
                 dcc.Dropdown(
                     id='invoice-day-filter',
                     options=day_options,
@@ -626,6 +639,17 @@ app.layout = html.Div([
             
             html.Div([
                 html.Label("Week:", style={'fontWeight': 'bold', 'marginBottom': 5}),
+                html.Div([
+                    dcc.Checklist(
+                        id='week-select-all',
+                        options=[{'label': 'Select All', 'value': 'select_all'}],
+                        value=[],
+                        style={'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px'}
+                    ),
+                    html.Button('Clear All', id='week-clear-all', 
+                               style={'fontSize': '10px', 'padding': '2px 6px', 'border': '1px solid #ccc', 
+                                     'borderRadius': '3px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer'})
+                ], style={'marginBottom': 5}),
                 dcc.Dropdown(
                     id='week-filter',
                     options=week_options,
@@ -637,6 +661,17 @@ app.layout = html.Div([
             
             html.Div([
                 html.Label("Brand:", style={'fontWeight': 'bold', 'marginBottom': 5}),
+                html.Div([
+                    dcc.Checklist(
+                        id='brand-select-all',
+                        options=[{'label': 'Select All', 'value': 'select_all'}],
+                        value=[],
+                        style={'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px'}
+                    ),
+                    html.Button('Clear All', id='brand-clear-all', 
+                               style={'fontSize': '10px', 'padding': '2px 6px', 'border': '1px solid #ccc', 
+                                     'borderRadius': '3px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer'})
+                ], style={'marginBottom': 5}),
                 dcc.Dropdown(
                     id='brand-filter',
                     options=brand_options,
@@ -648,6 +683,17 @@ app.layout = html.Div([
             
             html.Div([
                 html.Label("IDG:", style={'fontWeight': 'bold', 'marginBottom': 5}),
+                html.Div([
+                    dcc.Checklist(
+                        id='idg-select-all',
+                        options=[{'label': 'Select All', 'value': 'select_all'}],
+                        value=[],
+                        style={'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px'}
+                    ),
+                    html.Button('Clear All', id='idg-clear-all', 
+                               style={'fontSize': '10px', 'padding': '2px 6px', 'border': '1px solid #ccc', 
+                                     'borderRadius': '3px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer'})
+                ], style={'marginBottom': 5}),
                 dcc.Dropdown(
                     id='idg-filter',
                     options=idg_options,
@@ -659,6 +705,17 @@ app.layout = html.Div([
             
             html.Div([
                 html.Label("Type:", style={'fontWeight': 'bold', 'marginBottom': 5}),
+                html.Div([
+                    dcc.Checklist(
+                        id='type-select-all',
+                        options=[{'label': 'Select All', 'value': 'select_all'}],
+                        value=[],
+                        style={'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px'}
+                    ),
+                    html.Button('Clear All', id='type-clear-all', 
+                               style={'fontSize': '10px', 'padding': '2px 6px', 'border': '1px solid #ccc', 
+                                     'borderRadius': '3px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer'})
+                ], style={'marginBottom': 5}),
                 dcc.Dropdown(
                     id='type-filter',
                     options=type_options,
@@ -895,7 +952,11 @@ app.layout = html.Div([
 # Callback for mutual exclusivity between invoice day and week filters
 @app.callback(
     [Output('invoice-day-filter', 'disabled'),
-     Output('week-filter', 'disabled')],
+     Output('week-filter', 'disabled'),
+     Output('invoice-day-select-all', 'style'),
+     Output('week-select-all', 'style'),
+     Output('invoice-day-clear-all', 'disabled'),
+     Output('week-clear-all', 'disabled')],
     [Input('invoice-day-filter', 'value'),
      Input('week-filter', 'value')]
 )
@@ -905,7 +966,192 @@ def toggle_filter_exclusivity(invoice_days, weeks):
     # Disable invoice day filter if weeks are selected
     day_disabled = bool(weeks)
     
-    return day_disabled, week_disabled
+    # Style for disabled select all checkboxes
+    disabled_style = {'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px', 'opacity': 0.5, 'pointerEvents': 'none'}
+    enabled_style = {'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px'}
+    
+    day_select_all_style = disabled_style if day_disabled else enabled_style
+    week_select_all_style = disabled_style if week_disabled else enabled_style
+    
+    return day_disabled, week_disabled, day_select_all_style, week_select_all_style, day_disabled, week_disabled
+
+# Callbacks for "Select All" functionality
+@app.callback(
+    Output('invoice-day-filter', 'value'),
+    [Input('invoice-day-select-all', 'value')],
+    [State('invoice-day-filter', 'value')]
+)
+def select_all_invoice_days(select_all, current_values):
+    if select_all and 'select_all' in select_all:
+        # Select all days
+        return [option['value'] for option in day_options]
+    elif not select_all and current_values:
+        # If "Select All" is unchecked and there are current values, keep them
+        return current_values
+    else:
+        # Clear all selections
+        return []
+
+@app.callback(
+    Output('week-filter', 'value'),
+    [Input('week-select-all', 'value')],
+    [State('week-filter', 'value')]
+)
+def select_all_weeks(select_all, current_values):
+    if select_all and 'select_all' in select_all:
+        # Select all weeks
+        return [option['value'] for option in week_options]
+    elif not select_all and current_values:
+        # If "Select All" is unchecked and there are current values, keep them
+        return current_values
+    else:
+        # Clear all selections
+        return []
+
+@app.callback(
+    Output('brand-filter', 'value'),
+    [Input('brand-select-all', 'value')],
+    [State('brand-filter', 'value')]
+)
+def select_all_brands(select_all, current_values):
+    if select_all and 'select_all' in select_all:
+        # Select all brands
+        return [option['value'] for option in brand_options]
+    elif not select_all and current_values:
+        # If "Select All" is unchecked and there are current values, keep them
+        return current_values
+    else:
+        # Clear all selections
+        return []
+
+@app.callback(
+    Output('idg-filter', 'value'),
+    [Input('idg-select-all', 'value')],
+    [State('idg-filter', 'value')]
+)
+def select_all_idgs(select_all, current_values):
+    if select_all and 'select_all' in select_all:
+        # Select all IDGs
+        return [option['value'] for option in idg_options]
+    elif not select_all and current_values:
+        # If "Select All" is unchecked and there are current values, keep them
+        return current_values
+    else:
+        # Clear all selections
+        return []
+
+@app.callback(
+    Output('type-filter', 'value'),
+    [Input('type-select-all', 'value')],
+    [State('type-filter', 'value')]
+)
+def select_all_types(select_all, current_values):
+    if select_all and 'select_all' in select_all:
+        # Select all types
+        return [option['value'] for option in type_options]
+    elif not select_all and current_values:
+        # If "Select All" is unchecked and there are current values, keep them
+        return current_values
+    else:
+        # Clear all selections
+        return []
+
+# Callbacks for "Clear All" functionality
+@app.callback(
+    Output('invoice-day-filter', 'value', allow_duplicate=True),
+    [Input('invoice-day-clear-all', 'n_clicks')],
+    prevent_initial_call=True
+)
+def clear_all_invoice_days(n_clicks):
+    if n_clicks:
+        return []
+    return []  # Return empty list instead of no_update
+
+@app.callback(
+    Output('week-filter', 'value', allow_duplicate=True),
+    [Input('week-clear-all', 'n_clicks')],
+    prevent_initial_call=True
+)
+def clear_all_weeks(n_clicks):
+    if n_clicks:
+        return []
+    return []
+
+@app.callback(
+    Output('brand-filter', 'value', allow_duplicate=True),
+    [Input('brand-clear-all', 'n_clicks')],
+    prevent_initial_call=True
+)
+def clear_all_brands(n_clicks):
+    if n_clicks:
+        return []
+    return []
+
+@app.callback(
+    Output('idg-filter', 'value', allow_duplicate=True),
+    [Input('idg-clear-all', 'n_clicks')],
+    prevent_initial_call=True
+)
+def clear_all_idgs(n_clicks):
+    if n_clicks:
+        return []
+    return []
+
+@app.callback(
+    Output('type-filter', 'value', allow_duplicate=True),
+    [Input('type-clear-all', 'n_clicks')],
+    prevent_initial_call=True
+)
+def clear_all_types(n_clicks):
+    if n_clicks:
+        return []
+    return []
+
+# Auto-uncheck "Select All" when user manually deselects items
+@app.callback(
+    Output('invoice-day-select-all', 'value'),
+    [Input('invoice-day-filter', 'value')]
+)
+def uncheck_invoice_day_select_all(selected_values):
+    if not selected_values or len(selected_values) < len(day_options):
+        return []  # Uncheck "Select All"
+    return ['select_all']  # Keep "Select All" checked
+
+@app.callback(
+    Output('week-select-all', 'value'),
+    [Input('week-filter', 'value')]
+)
+def uncheck_week_select_all(selected_values):
+    if not selected_values or len(selected_values) < len(week_options):
+        return []  # Uncheck "Select All"
+    return ['select_all']  # Keep "Select All" checked
+
+@app.callback(
+    Output('brand-select-all', 'value'),
+    [Input('brand-filter', 'value')]
+)
+def uncheck_brand_select_all(selected_values):
+    if not selected_values or len(selected_values) < len(brand_options):
+        return []  # Uncheck "Select All"
+    return ['select_all']  # Keep "Select All" checked
+
+@app.callback(
+    Output('idg-select-all', 'value'),
+    [Input('idg-filter', 'value')]
+)
+def uncheck_idg_select_all(selected_values):
+    if not selected_values or len(selected_values) < len(idg_options):
+        return []  # Uncheck "Select All"
+    return ['select_all']  # Keep "Select All" checked
+
+@app.callback(
+    Output('type-select-all', 'value'),
+    [Input('type-filter', 'value')]
+)
+def uncheck_type_select_all(selected_values):
+    if not selected_values or len(selected_values) < len(type_options):
+        return []  # Uncheck "Select All"
+    return ['select_all']  # Keep "Select All" checked
 
 # Removed callback for updating week options - now automatically determined
 

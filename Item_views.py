@@ -309,14 +309,26 @@ if 'all_dfs' in locals():
         combined_df = pd.concat(cleaned_dfs, ignore_index=True, sort=False)
         print(f"Combined dataframe columns: {list(combined_df.columns)}")
         
-        # Filter out specific categories
+        # Filter out specific categories and <NA> values
         categories_to_exclude = ['JSP', 'Remove', 'FOC-R', 'EMI', '(blank)', 'PRO', 'WRT', 'Others']
         if 'Category' in combined_df.columns:
             print(f"Filtering out categories: {', '.join(categories_to_exclude)}")
             before_count = len(combined_df)
+            # Filter out excluded categories and <NA> values
             combined_df = combined_df[~combined_df['Category'].isin(categories_to_exclude)]
+            combined_df = combined_df[combined_df['Category'].notna()]  # Remove NaN/NA values
+            combined_df = combined_df[combined_df['Category'].astype(str) != '<NA>']  # Remove <NA> string values
             after_count = len(combined_df)
-            print(f"Removed {before_count - after_count} rows with excluded categories")
+            print(f"Removed {before_count - after_count} rows with excluded categories and <NA> values")
+        
+        # Filter out <NA> values from Brand column
+        if 'Brand' in combined_df.columns:
+            print("Filtering out <NA> values from Brand column")
+            before_count = len(combined_df)
+            combined_df = combined_df[combined_df['Brand'].notna()]  # Remove NaN/NA values
+            combined_df = combined_df[combined_df['Brand'].astype(str) != '<NA>']  # Remove <NA> string values
+            after_count = len(combined_df)
+            print(f"Removed {before_count - after_count} rows with <NA> Brand values")
         
         # Process the date column to extract day, month, and year
         if 'Date' in combined_df.columns:
@@ -511,10 +523,10 @@ def get_available_brands():
     """Get list of available brands"""
     if not df.empty and 'Brand' in df.columns:
         try:
-            # Convert to string and handle mixed types
+            # Convert to string and handle mixed types, filter out NA values
             brands = df['Brand'].dropna().astype(str).unique().tolist()
-            # Filter out empty strings and sort
-            brands = [brand for brand in brands if brand.strip() != '' and brand != 'nan']
+            # Filter out empty strings, 'nan', and '<NA>' values
+            brands = [brand for brand in brands if brand.strip() != '' and brand != 'nan' and brand != '<NA>']
             print(f"Available brands found: {len(brands)} - {brands[:10]}...")  # Show first 10 for debugging
             return sorted(brands)
         except Exception as e:
@@ -526,10 +538,10 @@ def get_available_categories():
     """Get list of available categories"""
     if not df.empty and 'Category' in df.columns:
         try:
-            # Convert to string and handle mixed types
+            # Convert to string and handle mixed types, filter out NA values
             categories = df['Category'].dropna().astype(str).unique().tolist()
-            # Filter out empty strings and sort
-            categories = [cat for cat in categories if cat.strip() != '' and cat != 'nan']
+            # Filter out empty strings, 'nan', and '<NA>' values
+            categories = [cat for cat in categories if cat.strip() != '' and cat != 'nan' and cat != '<NA>']
             print(f"Available categories found: {len(categories)} - {categories[:10]}...")  # Show first 10 for debugging
             return sorted(categories)
         except Exception as e:
@@ -945,7 +957,8 @@ def create_category_comparison(df_month1, df_month2, month1, month2):
         # Handle empty dataframes - create empty aggregated dataframes if needed
         if not df_month1.empty:
             df_month1['Category'] = df_month1['Category'].astype(str)
-            df_month1 = df_month1[df_month1['Category'] != 'nan']
+            # Filter out 'nan' and '<NA>' values
+            df_month1 = df_month1[(df_month1['Category'] != 'nan') & (df_month1['Category'] != '<NA>')]
             agg_month1 = df_month1.groupby('Category')[metrics].sum().reset_index()
         else:
             # Create empty dataframe with proper structure
@@ -953,7 +966,8 @@ def create_category_comparison(df_month1, df_month2, month1, month2):
             
         if not df_month2.empty:
             df_month2['Category'] = df_month2['Category'].astype(str)
-            df_month2 = df_month2[df_month2['Category'] != 'nan']
+            # Filter out 'nan' and '<NA>' values
+            df_month2 = df_month2[(df_month2['Category'] != 'nan') & (df_month2['Category'] != '<NA>')]
             agg_month2 = df_month2.groupby('Category')[metrics].sum().reset_index()
         else:
             # Create empty dataframe with proper structure
@@ -1082,7 +1096,8 @@ def create_item_comparison(df_month1, df_month2, month1, month2):
         # Handle empty dataframes - create empty aggregated dataframes if needed
         if not df_month1.empty:
             df_month1['Item name'] = df_month1['Item name'].astype(str)
-            df_month1 = df_month1[df_month1['Item name'] != 'nan']
+            # Filter out 'nan' and '<NA>' values
+            df_month1 = df_month1[(df_month1['Item name'] != 'nan') & (df_month1['Item name'] != '<NA>')]
             agg_month1 = df_month1.groupby('Item name')[metrics].sum().reset_index()
         else:
             # Create empty dataframe with proper structure
@@ -1090,7 +1105,8 @@ def create_item_comparison(df_month1, df_month2, month1, month2):
             
         if not df_month2.empty:
             df_month2['Item name'] = df_month2['Item name'].astype(str)
-            df_month2 = df_month2[df_month2['Item name'] != 'nan']
+            # Filter out 'nan' and '<NA>' values
+            df_month2 = df_month2[(df_month2['Item name'] != 'nan') & (df_month2['Item name'] != '<NA>')]
             agg_month2 = df_month2.groupby('Item name')[metrics].sum().reset_index()
         else:
             # Create empty dataframe with proper structure

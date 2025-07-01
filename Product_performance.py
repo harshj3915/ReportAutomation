@@ -913,8 +913,12 @@ app.layout = html.Div([
       # Top Performers Section
     html.Div([
         html.H3(f"🏆 Top 10 Performers from {sheet_info[2][2]} (with data from all periods)", style={'textAlign': 'center', 'marginBottom': 20}),
-        dash_table.DataTable(
-            id='top-performers-table',
+        dcc.Loading(
+            id="loading-top-performers",
+            type="default",
+            children=[
+                dash_table.DataTable(
+                    id='top-performers-table',
             style_cell={
                 'textAlign': 'left',
                 'padding': '10px',
@@ -984,14 +988,20 @@ app.layout = html.Div([
                 'border': '1px solid rgb(230, 230, 230)'
             },
             page_size=10
+                )
+            ]
         )
     ], style={'backgroundColor': '#ffffff', 'padding': '20px', 'borderRadius': '10px', 'marginBottom': 30, 'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}),
     
     # Top Brands Section
     html.Div([
         html.H3(f"🏅 Top 10 Brands from {sheet_info[2][2]} (with data from all periods)", style={'textAlign': 'center', 'marginBottom': 20}),
-        dash_table.DataTable(
-            id='top-brands-table',
+        dcc.Loading(
+            id="loading-top-brands",
+            type="default",
+            children=[
+                dash_table.DataTable(
+                    id='top-brands-table',
             style_cell={
                 'textAlign': 'left',
                 'padding': '10px',
@@ -1062,14 +1072,20 @@ app.layout = html.Div([
                 'border': '1px solid rgb(230, 230, 230)'
             },
             page_size=10
+                )
+            ]
         )
     ], style={'backgroundColor': '#ffffff', 'padding': '20px', 'borderRadius': '10px', 'marginBottom': 30, 'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}),
 
       # Tables Section - Responsive Layout
     html.Div([
         html.Div([            html.H4(f"{sheet_info[0][2]} - Product Analysis", style={'textAlign': 'center', 'marginBottom': 15}),
-            dash_table.DataTable(
-                id='table-0',
+            dcc.Loading(
+                id="loading-table-0",
+                type="default",
+                children=[
+                    dash_table.DataTable(
+                        id='table-0',
                 columns=[
                     {'name': 'Product Description', 'id': 'ProductDesc', 'type': 'text'},
                     {'name': 'Amount (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.2f'}},
@@ -1109,12 +1125,18 @@ app.layout = html.Div([
                 page_size=10,
                 sort_action="native",
                 filter_action="native"
+                    )
+                ]
             )
         ], style={'width': '31%', 'display': 'inline-block', 'marginRight': '2%', 'minWidth': '300px'}),
         
         html.Div([            html.H4(f"{sheet_info[1][2]} - Product Analysis", style={'textAlign': 'center', 'marginBottom': 15}),
-            dash_table.DataTable(
-                id='table-1',
+            dcc.Loading(
+                id="loading-table-1",
+                type="default",
+                children=[
+                    dash_table.DataTable(
+                        id='table-1',
                 columns=[
                     {'name': 'Product Description', 'id': 'ProductDesc', 'type': 'text'},
                     {'name': 'Amount (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.2f'}},
@@ -1154,12 +1176,18 @@ app.layout = html.Div([
                 page_size=10,
                 sort_action="native",
                 filter_action="native"
+                    )
+                ]
             )
         ], style={'width': '31%', 'display': 'inline-block', 'marginRight': '2%', 'minWidth': '300px'}),
         
         html.Div([            html.H4(f"{sheet_info[2][2]} - Product Analysis", style={'textAlign': 'center', 'marginBottom': 15}),
-            dash_table.DataTable(
-                id='table-2',
+            dcc.Loading(
+                id="loading-table-2",
+                type="default",
+                children=[
+                    dash_table.DataTable(
+                        id='table-2',
                 columns=[
                     {'name': 'Product Description', 'id': 'ProductDesc', 'type': 'text'},
                     {'name': 'Amount (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.2f'}},
@@ -1199,6 +1227,8 @@ app.layout = html.Div([
                 page_size=10,
                 sort_action="native",
                 filter_action="native"
+                    )
+                ]
             )
         ], style={'width': '31%', 'display': 'inline-block', 'minWidth': '300px'})
     ], style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'space-between', 'marginBottom': '20px'}),

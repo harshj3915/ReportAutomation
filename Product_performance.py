@@ -195,8 +195,114 @@ for idx, (path, sheet, display_name) in enumerate(sheet_info):
     
     type_results.append((idx, product_totals))  # Store the index instead of sheet name    # Store the processed dataframe
     dfs.append(filtered_df)
-# Initialize Dash app
+# Initialize Dash app with custom CSS
 app = dash.Dash(__name__)
+
+# Add custom CSS for dropdown styling
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            /* Custom styling for dynamic filter options */
+            .Select-option:first-child {
+                color: #28a745 !important;
+                font-weight: bold !important;
+            }
+            .Select-option[title*="✓"] {
+                color: #28a745 !important;
+                font-weight: bold !important;
+            }
+            .Select-option[title*="✗"] {
+                color: #dc3545 !important;
+                opacity: 0.7 !important;
+            }
+            /* Loading spinner styling */
+            ._dash-loading {
+                margin: 10px auto;
+            }
+            .dash-spinner {
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #007bff;
+                border-radius: 50%;
+                width: 30px;
+                height: 30px;
+                animation: spin 1s linear infinite;
+                margin: 10px auto;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
+
+# Add custom CSS for dropdown styling
+app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            /* Custom styling for dynamic filter options */
+            .Select-option:first-child {
+                color: #28a745 !important;
+                font-weight: bold !important;
+            }
+            .Select-option[title*="✓"] {
+                color: #28a745 !important;
+                font-weight: bold !important;
+            }
+            .Select-option[title*="✗"] {
+                color: #dc3545 !important;
+                opacity: 0.7 !important;
+            }
+            /* Loading spinner styling */
+            ._dash-loading {
+                margin: 10px auto;
+            }
+            .dash-spinner {
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #007bff;
+                border-radius: 50%;
+                width: 30px;
+                height: 30px;
+                animation: spin 1s linear infinite;
+                margin: 10px auto;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
 
 # Get unique values for filters from all dataframes
 all_days = []
@@ -429,9 +535,9 @@ def create_comparison_analysis(summaries):
     comparison_data = [
         {
             'Metric': 'Revenue (W.O. VAT)',
-            f'Last Month ({sheet_info[0][2]})': f"AED {last_month['total_revenue']:,.2f}",
-            f'Last Year ({sheet_info[1][2]})': f"AED {last_year['total_revenue']:,.2f}",
-            f'Current ({sheet_info[2][2]})': f"AED {current['total_revenue']:,.2f}",
+            f'Last Month ({sheet_info[0][2]})': f"AED {last_month['total_revenue']:,.0f}",
+            f'Last Year ({sheet_info[1][2]})': f"AED {last_year['total_revenue']:,.0f}",
+            f'Current ({sheet_info[2][2]})': f"AED {current['total_revenue']:,.0f}",
             'YoY Change %': f"{yoy_revenue_change:+.1f}%",
             'MoM Change %': f"{mom_revenue_change:+.1f}%"
         },
@@ -569,11 +675,11 @@ def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, categories
         formatted_top_products.append({
             'Rank': i + 1,
             'Product': product_name[:50] + '...' if len(product_name) > 50 else product_name,
-            # 'Total Revenue': f"AED {total_revenue:,.2f}",
+            # 'Total Revenue': f"AED {total_revenue:,.0f}",
             # 'Total Qty': f"{total_qty:,.0f}",
-            f"{sheet_info[0][2]} Revenue": f"AED {product_data[f'{sheet_info[0][2]}_Revenue']:,.2f}",
-            f"{sheet_info[1][2]} Revenue": f"AED {product_data[f'{sheet_info[1][2]}_Revenue']:,.2f}",
-            f"{sheet_info[2][2]} Revenue": f"AED {product_data[f'{sheet_info[2][2]}_Revenue']:,.2f}",
+            f"{sheet_info[0][2]} Revenue": f"AED {product_data[f'{sheet_info[0][2]}_Revenue']:,.0f}",
+            f"{sheet_info[1][2]} Revenue": f"AED {product_data[f'{sheet_info[1][2]}_Revenue']:,.0f}",
+            f"{sheet_info[2][2]} Revenue": f"AED {product_data[f'{sheet_info[2][2]}_Revenue']:,.0f}",
             'YoY Change %': yoy_display,
             'MoM Change %': mom_display
         })
@@ -688,9 +794,9 @@ def get_top_brands(dfs, invoice_days, weeks, brands, idgs, types, categories=Non
         formatted_top_brands.append({
             'Rank': i + 1,
             'Brand': brand_name,
-            f"{sheet_info[0][2]} Revenue": f"AED {brand_data[f'{sheet_info[0][2]}_Revenue']:,.2f}",
-            f"{sheet_info[1][2]} Revenue": f"AED {brand_data[f'{sheet_info[1][2]}_Revenue']:,.2f}",
-            f"{sheet_info[2][2]} Revenue": f"AED {brand_data[f'{sheet_info[2][2]}_Revenue']:,.2f}",
+            f"{sheet_info[0][2]} Revenue": f"AED {brand_data[f'{sheet_info[0][2]}_Revenue']:,.0f}",
+            f"{sheet_info[1][2]} Revenue": f"AED {brand_data[f'{sheet_info[1][2]}_Revenue']:,.0f}",
+            f"{sheet_info[2][2]} Revenue": f"AED {brand_data[f'{sheet_info[2][2]}_Revenue']:,.0f}",
             'YoY Change %': yoy_display,
             'MoM Change %': mom_display
         })
@@ -743,7 +849,9 @@ app.layout = html.Div([
         # Compact Filter Note
         html.Div([
             html.P("📝 Days OR Weeks (not both) | 💡 Select All → Clear All buttons", 
-                   style={'textAlign': 'center', 'fontSize': '11px', 'color': '#666', 'marginBottom': 8})
+                   style={'textAlign': 'center', 'fontSize': '11px', 'color': '#666', 'marginBottom': 4}),
+            html.P("🔄 Smart Filters: ✓ Compatible with other selections | ✗ No data when combined", 
+                   style={'textAlign': 'center', 'fontSize': '10px', 'color': '#28a745', 'marginBottom': 8})
         ]),
         
         # Compact Filter Grid - 3 rows of filters
@@ -1088,7 +1196,7 @@ app.layout = html.Div([
                         id='table-0',
                 columns=[
                     {'name': 'Product Description', 'id': 'ProductDesc', 'type': 'text'},
-                    {'name': 'Amount (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.2f'}},
+                    {'name': 'Amount (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
                     {'name': 'Qty', 'id': 'QtyOrdered', 'type': 'numeric', 'format': {'specifier': ',.0f'}}
                 ],
                 style_cell={
@@ -1131,15 +1239,11 @@ app.layout = html.Div([
         ], style={'width': '31%', 'display': 'inline-block', 'marginRight': '2%', 'minWidth': '300px'}),
         
         html.Div([            html.H4(f"{sheet_info[1][2]} - Product Analysis", style={'textAlign': 'center', 'marginBottom': 15}),
-            dcc.Loading(
-                id="loading-table-1",
-                type="default",
-                children=[
-                    dash_table.DataTable(
-                        id='table-1',
+            dash_table.DataTable(
+                id='table-1',
                 columns=[
                     {'name': 'Product Description', 'id': 'ProductDesc', 'type': 'text'},
-                    {'name': 'Amount (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.2f'}},
+                    {'name': 'Amount (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
                     {'name': 'Qty', 'id': 'QtyOrdered', 'type': 'numeric', 'format': {'specifier': ',.0f'}}
                 ],
                 style_cell={
@@ -1176,21 +1280,15 @@ app.layout = html.Div([
                 page_size=10,
                 sort_action="native",
                 filter_action="native"
-                    )
-                ]
             )
         ], style={'width': '31%', 'display': 'inline-block', 'marginRight': '2%', 'minWidth': '300px'}),
         
         html.Div([            html.H4(f"{sheet_info[2][2]} - Product Analysis", style={'textAlign': 'center', 'marginBottom': 15}),
-            dcc.Loading(
-                id="loading-table-2",
-                type="default",
-                children=[
-                    dash_table.DataTable(
-                        id='table-2',
+            dash_table.DataTable(
+                id='table-2',
                 columns=[
                     {'name': 'Product Description', 'id': 'ProductDesc', 'type': 'text'},
-                    {'name': 'Amount (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.2f'}},
+                    {'name': 'Amount (W.O. VAT)', 'id': 'Amount Invoiced W.O. VAT', 'type': 'numeric', 'format': {'specifier': ',.0f'}},
                     {'name': 'Qty', 'id': 'QtyOrdered', 'type': 'numeric', 'format': {'specifier': ',.0f'}}
                 ],
                 style_cell={
@@ -1227,8 +1325,6 @@ app.layout = html.Div([
                 page_size=10,
                 sort_action="native",
                 filter_action="native"
-                    )
-                ]
             )
         ], style={'width': '31%', 'display': 'inline-block', 'minWidth': '300px'})
     ], style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'space-between', 'marginBottom': '20px'}),
@@ -1632,6 +1728,168 @@ def update_tables(invoice_days, weeks, brands, idgs, types, categories, item_nam
     } for row in table_data_2]
     
     return table_data_0, table_data_1, table_data_2, tooltip_data_0, tooltip_data_1, tooltip_data_2
+
+# Function to get dynamic filter options based on current selections
+def get_dynamic_filter_options(dfs, invoice_days=None, weeks=None, brands=None, idgs=None, types=None, categories=None, item_names=None):
+    """
+    Get available filter options based on current selections.
+    Returns options with available ones highlighted and shown first.
+    For each filter type, we exclude that filter type from the filtering logic to allow multiple selections.
+    """
+    # Combine all dataframes for filtering
+    combined_df = pd.concat(dfs, ignore_index=True)
+    
+    # Helper function to get available values for a specific filter type
+    def get_available_values_for_filter(filter_type):
+        filtered_df = combined_df.copy()
+        
+        # Apply all filters EXCEPT the current filter type being updated
+        if filter_type != 'invoice_days' and invoice_days:
+            filtered_df = filtered_df[filtered_df['InvoiceDay'].isin(invoice_days)]
+        if filter_type != 'weeks' and weeks and 'Week' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['Week'].isin(weeks)]
+        if filter_type != 'brands' and brands:
+            filtered_df = filtered_df[filtered_df['Brand'].isin(brands)]
+        if filter_type != 'idgs' and idgs:
+            filtered_df = filtered_df[filtered_df['idg'].isin(idgs)]
+        if filter_type != 'types' and types:
+            filtered_df = filtered_df[filtered_df['TYPE'].isin(types)]
+        if filter_type != 'categories' and categories and 'Category Name (L3)' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['Category Name (L3)'].isin(categories)]
+        if filter_type != 'item_names' and item_names and 'ItemName' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['ItemName'].isin(item_names)]
+        
+        return filtered_df
+    
+    # Get available values for each filter type
+    days_df = get_available_values_for_filter('invoice_days')
+    weeks_df = get_available_values_for_filter('weeks')
+    brands_df = get_available_values_for_filter('brands')
+    idgs_df = get_available_values_for_filter('idgs')
+    types_df = get_available_values_for_filter('types')
+    categories_df = get_available_values_for_filter('categories')
+    item_names_df = get_available_values_for_filter('item_names')
+    
+    # Get available unique values for each filter
+    available_days = sorted(list(set(days_df['InvoiceDay'].dropna().unique())))
+    available_brands = sorted(list(set(brands_df['Brand'].dropna().unique())))
+    available_idgs = sorted(list(set(idgs_df['idg'].dropna().unique())))
+    available_types = sorted(list(set(types_df['TYPE'].dropna().unique())))
+    available_categories = sorted(list(set(categories_df['Category Name (L3)'].dropna().unique()))) if 'Category Name (L3)' in categories_df.columns else []
+    available_item_names = sorted(list(set(item_names_df['ItemName'].dropna().unique()))) if 'ItemName' in item_names_df.columns else []
+    
+    # Get available weeks
+    available_weeks = []
+    if 'Week' in weeks_df.columns:
+        available_weeks = sorted(list(set(weeks_df['Week'].dropna().unique())))
+    
+    # Create options with styling for available vs unavailable
+    def create_styled_options(all_values, available_values, format_func=None):
+        options = []
+        
+        # First, add available options (highlighted with checkmark)
+        for value in available_values:
+            if not pd.isna(value):
+                label = format_func(value) if format_func else str(value)
+                options.append({
+                    'label': f"✓ {label}",  # Green checkmark for available
+                    'value': value
+                })
+        
+        # Then add unavailable options (with X mark)
+        unavailable_values = set(all_values) - set(available_values)
+        for value in sorted(unavailable_values):
+            if not pd.isna(value):
+                label = format_func(value) if format_func else str(value)
+                options.append({
+                    'label': f"✗ {label}",  # Red X for unavailable
+                    'value': value
+                })
+        
+        return options
+    
+    # Create day options with formatting
+    def format_day(day):
+        return f'Day {int(day)}'
+    
+    # Create week options with formatting
+    def format_week(week):
+        if not pd.isna(week) and int(week) in get_week_date_ranges(first_day_weekday, latest_month_year):
+            start_day, end_day = get_week_date_ranges(first_day_weekday, latest_month_year)[int(week)]
+            if start_day == end_day:
+                return f'Week {int(week)} ({start_day})'
+            else:
+                return f'Week {int(week)} ({start_day}-{end_day})'
+        return f'Week {int(week)}'
+    
+    # Get all possible values from original data
+    all_days = sorted(list(set(combined_df['InvoiceDay'].dropna().unique())))
+    all_brands = sorted(list(set(combined_df['Brand'].dropna().unique())))
+    all_idgs = sorted(list(set(combined_df['idg'].dropna().unique())))
+    all_types = sorted(list(set(combined_df['TYPE'].dropna().unique())))
+    all_categories = sorted(list(set(combined_df['Category Name (L3)'].dropna().unique()))) if 'Category Name (L3)' in combined_df.columns else []
+    all_item_names = sorted(list(set(combined_df['ItemName'].dropna().unique()))) if 'ItemName' in combined_df.columns else []
+    all_weeks = sorted(list(set(combined_df['Week'].dropna().unique()))) if 'Week' in combined_df.columns else []
+    
+    return {
+        'day_options': create_styled_options(all_days, available_days, format_day),
+        'week_options': create_styled_options(all_weeks, available_weeks, format_week),
+        'brand_options': create_styled_options(all_brands, available_brands),
+        'idg_options': create_styled_options(all_idgs, available_idgs),
+        'type_options': create_styled_options(all_types, available_types),
+        'category_options': create_styled_options(all_categories, available_categories),
+        'item_name_options': create_styled_options(all_item_names, available_item_names)
+    }
+
+# Callback to update all filter options dynamically based on current selections
+@app.callback(
+    [Output('invoice-day-filter', 'options'),
+     Output('week-filter', 'options'),
+     Output('brand-filter', 'options'),
+     Output('idg-filter', 'options'),
+     Output('type-filter', 'options'),
+     Output('category-filter', 'options'),
+     Output('item-name-filter', 'options')],
+    [Input('invoice-day-filter', 'value'),
+     Input('week-filter', 'value'),
+     Input('brand-filter', 'value'),
+     Input('idg-filter', 'value'),
+     Input('type-filter', 'value'),
+     Input('category-filter', 'value'),
+     Input('item-name-filter', 'value')]
+)
+def update_filter_options(invoice_days, weeks, brands, idgs, types, categories, item_names):
+    """
+    Update all filter options dynamically based on current selections.
+    Available options are shown first with green checkmarks, unavailable options are grayed out.
+    """
+    try:
+        # Get dynamic options based on current selections
+        dynamic_options = get_dynamic_filter_options(
+            dfs, invoice_days, weeks, brands, idgs, types, categories, item_names
+        )
+        
+        return (
+            dynamic_options['day_options'],
+            dynamic_options['week_options'],
+            dynamic_options['brand_options'],
+            dynamic_options['idg_options'],
+            dynamic_options['type_options'],
+            dynamic_options['category_options'],
+            dynamic_options['item_name_options']
+        )
+    except Exception as e:
+        # Fallback to original static options if there's an error
+        print(f"Error in dynamic filtering: {e}")
+        return (
+            day_options,
+            week_options,
+            brand_options,
+            idg_options,
+            type_options,
+            category_options,
+            item_name_options
+        )
 # Run the app
 if __name__ == '__main__':
     app.run(debug=False, port=8050)

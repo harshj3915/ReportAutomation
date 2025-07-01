@@ -173,17 +173,6 @@ except Exception as e:
         ('test2/June25.xlsx', 'Sheet1', 'June 25')                # Latest month raw sheet
     ]
 
-# Read the session data with specific columns
-important_columns = [
-    'Day',
-    'Channel',
-    'Sessions',
-    'Purchases',
-    'Purchase revenue',
-    'CG',
-    'Category'
-]
-
 # Collect day-wise and TYPE-wise sums for each sheet
 results = []
 type_results = []
@@ -196,6 +185,7 @@ for idx, (path, sheet, display_name) in enumerate(sheet_info):
     filtered_df['InvoiceDay'] = pd.to_datetime(filtered_df['InvoiceDate'], dayfirst=True, errors='coerce').dt.day
       # Map CC to Jumbo.ae in the TYPE column
     filtered_df['TYPE'] = filtered_df['TYPE'].replace('CC', 'Jumbo.ae')
+    filtered_df['TYPE'] = filtered_df['TYPE'].replace('jumbo.ae', 'Jumbo.ae')
     
     # Group by ProductDesc and sum both Amount Invoiced W.O. VAT and QtyOrdered
     product_totals = filtered_df.groupby('ProductDesc').agg({
@@ -205,7 +195,6 @@ for idx, (path, sheet, display_name) in enumerate(sheet_info):
     
     type_results.append((idx, product_totals))  # Store the index instead of sheet name    # Store the processed dataframe
     dfs.append(filtered_df)
-
 # Initialize Dash app
 app = dash.Dash(__name__)
 
@@ -214,6 +203,8 @@ all_days = []
 all_brands = []
 all_idgs = []
 all_types = []
+all_categories = []
+all_item_names = []
 
 for df in dfs:
     # Get unique invoice days (1-31)
@@ -222,18 +213,28 @@ for df in dfs:
     all_brands.extend(df['Brand'].dropna().unique())
     all_idgs.extend(df['idg'].dropna().unique())
     all_types.extend(df['TYPE'].dropna().unique())
+    
+    # Add new filters
+    if 'Category Name (L3)' in df.columns:
+        all_categories.extend(df['Category Name (L3)'].dropna().unique())
+    if 'ItemName' in df.columns:
+        all_item_names.extend(df['ItemName'].dropna().unique())
 
 # Remove duplicates and sort
 unique_days = sorted(list(set(all_days)))
 unique_brands = sorted(list(set(all_brands)))
 unique_idgs = sorted(list(set(all_idgs)))
 unique_types = sorted(list(set(all_types)))
+unique_categories = sorted(list(set(all_categories)))
+unique_item_names = sorted(list(set(all_item_names)))
 
 # Create options for dropdowns
 day_options = [{'label': f'Day {int(day)}', 'value': day} for day in unique_days if not pd.isna(day)]
 brand_options = [{'label': brand, 'value': brand} for brand in unique_brands]
 idg_options = [{'label': idg, 'value': idg} for idg in unique_idgs]
 type_options = [{'label': type_val, 'value': type_val} for type_val in unique_types]
+category_options = [{'label': category, 'value': category} for category in unique_categories]
+item_name_options = [{'label': item_name, 'value': item_name} for item_name in unique_item_names]
 
 # Week calculation function
 def get_week_date_ranges(first_day_of_month_weekday, month_year):
@@ -336,7 +337,7 @@ def get_week_options(dfs, first_day_weekday, month_year):
 week_options = get_week_options(dfs, first_day_weekday, latest_month_year)
 
 # Function to filter and aggregate data
-def filter_and_aggregate_data(df, invoice_days, weeks, brands, idgs, types):
+def filter_and_aggregate_data(df, invoice_days, weeks, brands, idgs, types, categories=None, item_names=None):
     filtered_df = df.copy()
     
     if invoice_days:
@@ -349,6 +350,10 @@ def filter_and_aggregate_data(df, invoice_days, weeks, brands, idgs, types):
         filtered_df = filtered_df[filtered_df['idg'].isin(idgs)]
     if types:
         filtered_df = filtered_df[filtered_df['TYPE'].isin(types)]
+    if categories and 'Category Name (L3)' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['Category Name (L3)'].isin(categories)]
+    if item_names and 'ItemName' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['ItemName'].isin(item_names)]
     
     # Always group by ProductDesc (product view)
     product_totals = filtered_df.groupby('ProductDesc').agg({
@@ -369,7 +374,7 @@ def filter_and_aggregate_data(df, invoice_days, weeks, brands, idgs, types):
     return df_display.to_dict('records')
 
 # Function to calculate summary metrics
-def calculate_summary_metrics(dfs, invoice_days, weeks, brands, idgs, types):
+def calculate_summary_metrics(dfs, invoice_days, weeks, brands, idgs, types, categories=None, item_names=None):
     summaries = []
     for i, df in enumerate(dfs):
         filtered_df = df.copy()
@@ -384,6 +389,10 @@ def calculate_summary_metrics(dfs, invoice_days, weeks, brands, idgs, types):
             filtered_df = filtered_df[filtered_df['idg'].isin(idgs)]
         if types:
             filtered_df = filtered_df[filtered_df['TYPE'].isin(types)]
+        if categories and 'Category Name (L3)' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['Category Name (L3)'].isin(categories)]
+        if item_names and 'ItemName' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['ItemName'].isin(item_names)]
         
         total_revenue = filtered_df['Amount Invoiced W.O. VAT'].sum()
         total_qty = filtered_df['QtyOrdered'].sum()
@@ -455,7 +464,7 @@ def create_comparison_analysis(summaries):
     return comparison_data
 
 # Function to get top performers across all periods
-def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, top_n=10):
+def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, categories=None, item_names=None, top_n=10):
     # Get top 10 products from the latest month (index 2)
     latest_df = dfs[2].copy()
     
@@ -470,6 +479,10 @@ def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, top_n=10):
         latest_df = latest_df[latest_df['idg'].isin(idgs)]
     if types:
         latest_df = latest_df[latest_df['TYPE'].isin(types)]
+    if categories and 'Category Name (L3)' in latest_df.columns:
+        latest_df = latest_df[latest_df['Category Name (L3)'].isin(categories)]
+    if item_names and 'ItemName' in latest_df.columns:
+        latest_df = latest_df[latest_df['ItemName'].isin(item_names)]
     
     # Get top products from latest month
     latest_product_totals = latest_df.groupby('ProductDesc').agg({
@@ -506,6 +519,10 @@ def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, top_n=10):
                 filtered_df = filtered_df[filtered_df['idg'].isin(idgs)]
             if types:
                 filtered_df = filtered_df[filtered_df['TYPE'].isin(types)]
+            if categories and 'Category Name (L3)' in filtered_df.columns:
+                filtered_df = filtered_df[filtered_df['Category Name (L3)'].isin(categories)]
+            if item_names and 'ItemName' in filtered_df.columns:
+                filtered_df = filtered_df[filtered_df['ItemName'].isin(item_names)]
             
             period_name = sheet_info[i][2]
             
@@ -563,6 +580,123 @@ def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, top_n=10):
     
     return formatted_top_products
 
+# Function to get top performing brands across all periods
+def get_top_brands(dfs, invoice_days, weeks, brands, idgs, types, categories=None, item_names=None, top_n=10):
+    # Get top 10 brands from the latest month (index 2)
+    latest_df = dfs[2].copy()
+    
+    # Apply filters to latest month data
+    if invoice_days:
+        latest_df = latest_df[latest_df['InvoiceDay'].isin(invoice_days)]
+    if weeks and 'Week' in latest_df.columns:
+        latest_df = latest_df[latest_df['Week'].isin(weeks)]
+    if brands:
+        latest_df = latest_df[latest_df['Brand'].isin(brands)]
+    if idgs:
+        latest_df = latest_df[latest_df['idg'].isin(idgs)]
+    if types:
+        latest_df = latest_df[latest_df['TYPE'].isin(types)]
+    if categories and 'Category Name (L3)' in latest_df.columns:
+        latest_df = latest_df[latest_df['Category Name (L3)'].isin(categories)]
+    if item_names and 'ItemName' in latest_df.columns:
+        latest_df = latest_df[latest_df['ItemName'].isin(item_names)]
+    
+    # Get top brands from latest month
+    latest_brand_totals = latest_df.groupby('Brand').agg({
+        'Amount Invoiced W.O. VAT': 'sum',
+        'QtyOrdered': 'sum'
+    }).sort_values(by='Amount Invoiced W.O. VAT', ascending=False)
+    
+    # Get top N brands from latest month
+    top_brands_latest = latest_brand_totals.head(top_n)
+    top_brand_names = top_brands_latest.index.tolist()
+    
+    # Now get data for these brands from all periods
+    all_brands_data = {}
+    
+    for brand_name in top_brand_names:
+        all_brands_data[brand_name] = {
+            'Brand': brand_name,
+            f'{sheet_info[2][2]}_Revenue': top_brands_latest.loc[brand_name, 'Amount Invoiced W.O. VAT'],
+            f'{sheet_info[2][2]}_Qty': top_brands_latest.loc[brand_name, 'QtyOrdered']
+        }
+        
+        # Get data from other periods for the same brands
+        for i, df in enumerate(dfs[:2]):  # Only check first two periods (not the latest)
+            filtered_df = df.copy()
+            
+            # Apply same filters
+            if invoice_days:
+                filtered_df = filtered_df[filtered_df['InvoiceDay'].isin(invoice_days)]
+            if weeks and 'Week' in filtered_df.columns:
+                filtered_df = filtered_df[filtered_df['Week'].isin(weeks)]
+            if brands:
+                filtered_df = filtered_df[filtered_df['Brand'].isin(brands)]
+            if idgs:
+                filtered_df = filtered_df[filtered_df['idg'].isin(idgs)]
+            if types:
+                filtered_df = filtered_df[filtered_df['TYPE'].isin(types)]
+            if categories and 'Category Name (L3)' in filtered_df.columns:
+                filtered_df = filtered_df[filtered_df['Category Name (L3)'].isin(categories)]
+            if item_names and 'ItemName' in filtered_df.columns:
+                filtered_df = filtered_df[filtered_df['ItemName'].isin(item_names)]
+            
+            period_name = sheet_info[i][2]
+            
+            # Check if brand exists in this period
+            brand_data = filtered_df[filtered_df['Brand'] == brand_name]
+            if not brand_data.empty:
+                revenue = brand_data['Amount Invoiced W.O. VAT'].sum()
+                qty = brand_data['QtyOrdered'].sum()
+            else:
+                revenue = 0
+                qty = 0
+            
+            all_brands_data[brand_name][f'{period_name}_Revenue'] = revenue
+            all_brands_data[brand_name][f'{period_name}_Qty'] = qty
+    
+    # Format the results
+    formatted_top_brands = []
+    for i, (brand_name, brand_data) in enumerate(all_brands_data.items()):
+        # Calculate total revenue and quantity across all periods
+        total_revenue = (brand_data[f'{sheet_info[0][2]}_Revenue'] + 
+                        brand_data[f'{sheet_info[1][2]}_Revenue'] + 
+                        brand_data[f'{sheet_info[2][2]}_Revenue'])
+        total_qty = (brand_data[f'{sheet_info[0][2]}_Qty'] + 
+                    brand_data[f'{sheet_info[1][2]}_Qty'] + 
+                    brand_data[f'{sheet_info[2][2]}_Qty'])
+        
+        # Calculate comparisons
+        current_revenue = brand_data[f'{sheet_info[2][2]}_Revenue']
+        last_year_revenue = brand_data[f'{sheet_info[1][2]}_Revenue']
+        last_month_revenue = brand_data[f'{sheet_info[0][2]}_Revenue']
+        
+        # Year-over-year comparison
+        if last_year_revenue > 0:
+            yoy_change = ((current_revenue - last_year_revenue) / last_year_revenue) * 100
+            yoy_display = f"{yoy_change:+.1f}%"
+        else:
+            yoy_display = "New Brand"
+        
+        # Month-over-month comparison
+        if last_month_revenue > 0:
+            mom_change = ((current_revenue - last_month_revenue) / last_month_revenue) * 100
+            mom_display = f"{mom_change:+.1f}%"
+        else:
+            mom_display = "New Brand"
+        
+        formatted_top_brands.append({
+            'Rank': i + 1,
+            'Brand': brand_name,
+            f"{sheet_info[0][2]} Revenue": f"AED {brand_data[f'{sheet_info[0][2]}_Revenue']:,.2f}",
+            f"{sheet_info[1][2]} Revenue": f"AED {brand_data[f'{sheet_info[1][2]}_Revenue']:,.2f}",
+            f"{sheet_info[2][2]} Revenue": f"AED {brand_data[f'{sheet_info[2][2]}_Revenue']:,.2f}",
+            'YoY Change %': yoy_display,
+            'MoM Change %': mom_display
+        })
+    
+    return formatted_top_brands
+
 # CONFIGURATION HELPER FUNCTION
 def update_dashboard_configuration(new_month_year, dsr_folder_path=None):
     """
@@ -596,137 +730,186 @@ def update_dashboard_configuration(new_month_year, dsr_folder_path=None):
 app.layout = html.Div([
     html.H1("Product Analysis Dashboard", style={'textAlign': 'center', 'marginBottom': 30, 'fontFamily': 'Arial, sans-serif'}),
     
-    # Universal Filters Section
+    # Universal Filters Section - Compact Design
     html.Div([
-        html.H3("Universal Filters", style={'textAlign': 'center', 'marginBottom': 20}),
+        html.H4("🔍 Filters", style={'textAlign': 'center', 'marginBottom': 8, 'fontSize': '16px'}),
         
-        # Display automatically determined first day of month
+        # Display automatically determined first day of month - compact
         html.Div([
-            html.P(f"📅 First day of {latest_month_year}: {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][first_day_weekday]} (automatically detected)", 
-                   style={'textAlign': 'center', 'fontWeight': 'bold', 'color': '#007bff', 'marginBottom': 20})
+            html.P(f"📅 {latest_month_year}: {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][first_day_weekday]} start", 
+                   style={'textAlign': 'center', 'fontSize': '10px', 'color': '#007bff', 'marginBottom': 5})
         ]),
         
-        # Filter Selection Note
+        # Compact Filter Note
         html.Div([
-            html.P("Note: You can either filter by specific invoice days OR by weeks, but not both at the same time.", 
-                   style={'textAlign': 'center', 'fontStyle': 'italic', 'color': '#666', 'marginBottom': 10}),
-            html.P("💡 Tip: Use 'Select All' to quickly select all options, then uncheck individual items you don't want. Use 'Clear All' to deselect everything.", 
-                   style={'textAlign': 'center', 'fontStyle': 'italic', 'color': '#007bff', 'marginBottom': 15, 'fontSize': '12px'})
+            html.P("📝 Days OR Weeks (not both) | 💡 Select All → Clear All buttons", 
+                   style={'textAlign': 'center', 'fontSize': '11px', 'color': '#666', 'marginBottom': 8})
         ]),
         
+        # Compact Filter Grid - 3 rows of filters
         html.Div([
+            # Row 1: Time filters
             html.Div([
-                html.Label("Invoice Day:", style={'fontWeight': 'bold', 'marginBottom': 5}),
                 html.Div([
-                    dcc.Checklist(
-                        id='invoice-day-select-all',
-                        options=[{'label': 'Select All', 'value': 'select_all'}],
-                        value=[],
-                        style={'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px'}
-                    ),
-                    html.Button('Clear All', id='invoice-day-clear-all', 
-                               style={'fontSize': '10px', 'padding': '2px 6px', 'border': '1px solid #ccc', 
-                                     'borderRadius': '3px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer'})
-                ], style={'marginBottom': 5}),
-                dcc.Dropdown(
-                    id='invoice-day-filter',
-                    options=day_options,
-                    multi=True,
-                    placeholder="Select Invoice Days",
-                    style={'marginBottom': 10}
-                )
-            ], style={'width': '19%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '150px'}),
+                    html.Label("Days:", style={'fontSize': '11px', 'fontWeight': 'bold', 'marginBottom': 2}),
+                    html.Div([
+                        dcc.Checklist(
+                            id='invoice-day-select-all',
+                            options=[{'label': 'All', 'value': 'select_all'}],
+                            value=[],
+                            style={'display': 'inline-block', 'marginRight': '5px', 'fontSize': '9px'}
+                        ),
+                        html.Button('✕', id='invoice-day-clear-all', 
+                                   style={'fontSize': '8px', 'padding': '1px 4px', 'border': '1px solid #ccc', 
+                                         'borderRadius': '2px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer', 'lineHeight': '1'})
+                    ], style={'marginBottom': 2}),
+                    dcc.Dropdown(
+                        id='invoice-day-filter',
+                        options=day_options,
+                        multi=True,
+                        placeholder="Days",
+                        style={'fontSize': '11px', 'minHeight': '28px'}
+                    )
+                ], style={'width': '24%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '120px'}),
+                
+                html.Div([
+                    html.Label("Weeks:", style={'fontSize': '11px', 'fontWeight': 'bold', 'marginBottom': 2}),
+                    html.Div([
+                        dcc.Checklist(
+                            id='week-select-all',
+                            options=[{'label': 'All', 'value': 'select_all'}],
+                            value=[],
+                            style={'display': 'inline-block', 'marginRight': '5px', 'fontSize': '9px'}
+                        ),
+                        html.Button('✕', id='week-clear-all', 
+                                   style={'fontSize': '8px', 'padding': '1px 4px', 'border': '1px solid #ccc', 
+                                         'borderRadius': '2px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer', 'lineHeight': '1'})
+                    ], style={'marginBottom': 2}),
+                    dcc.Dropdown(
+                        id='week-filter',
+                        options=week_options,
+                        multi=True,
+                        placeholder="Weeks",
+                        style={'fontSize': '11px', 'minHeight': '28px'}
+                    )
+                ], style={'width': '24%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '120px'}),
+                
+                html.Div([
+                    html.Label("Brand:", style={'fontSize': '11px', 'fontWeight': 'bold', 'marginBottom': 2}),
+                    html.Div([
+                        dcc.Checklist(
+                            id='brand-select-all',
+                            options=[{'label': 'All', 'value': 'select_all'}],
+                            value=[],
+                            style={'display': 'inline-block', 'marginRight': '5px', 'fontSize': '9px'}
+                        ),
+                        html.Button('✕', id='brand-clear-all', 
+                                   style={'fontSize': '8px', 'padding': '1px 4px', 'border': '1px solid #ccc', 
+                                         'borderRadius': '2px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer', 'lineHeight': '1'})
+                    ], style={'marginBottom': 2}),
+                    dcc.Dropdown(
+                        id='brand-filter',
+                        options=brand_options,
+                        multi=True,
+                        placeholder="Brands",
+                        style={'fontSize': '11px', 'minHeight': '28px'}
+                    )
+                ], style={'width': '24%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '120px'}),
+                
+                html.Div([
+                    html.Label("IDG:", style={'fontSize': '11px', 'fontWeight': 'bold', 'marginBottom': 2}),
+                    html.Div([
+                        dcc.Checklist(
+                            id='idg-select-all',
+                            options=[{'label': 'All', 'value': 'select_all'}],
+                            value=[],
+                            style={'display': 'inline-block', 'marginRight': '5px', 'fontSize': '9px'}
+                        ),
+                        html.Button('✕', id='idg-clear-all', 
+                                   style={'fontSize': '8px', 'padding': '1px 4px', 'border': '1px solid #ccc', 
+                                         'borderRadius': '2px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer', 'lineHeight': '1'})
+                    ], style={'marginBottom': 2}),
+                    dcc.Dropdown(
+                        id='idg-filter',
+                        options=idg_options,
+                        multi=True,
+                        placeholder="IDG",
+                        style={'fontSize': '11px', 'minHeight': '28px'}
+                    )
+                ], style={'width': '24%', 'display': 'inline-block', 'minWidth': '120px'})
+            ], style={'display': 'flex', 'flexWrap': 'wrap', 'marginBottom': 8}),
             
+            # Row 2: Product filters
             html.Div([
-                html.Label("Week:", style={'fontWeight': 'bold', 'marginBottom': 5}),
                 html.Div([
-                    dcc.Checklist(
-                        id='week-select-all',
-                        options=[{'label': 'Select All', 'value': 'select_all'}],
-                        value=[],
-                        style={'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px'}
-                    ),
-                    html.Button('Clear All', id='week-clear-all', 
-                               style={'fontSize': '10px', 'padding': '2px 6px', 'border': '1px solid #ccc', 
-                                     'borderRadius': '3px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer'})
-                ], style={'marginBottom': 5}),
-                dcc.Dropdown(
-                    id='week-filter',
-                    options=week_options,
-                    multi=True,
-                    placeholder="Select Weeks",
-                    style={'marginBottom': 10}
-                )
-            ], style={'width': '19%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '150px'}),
-            
-            html.Div([
-                html.Label("Brand:", style={'fontWeight': 'bold', 'marginBottom': 5}),
+                    html.Label("Type:", style={'fontSize': '11px', 'fontWeight': 'bold', 'marginBottom': 2}),
+                    html.Div([
+                        dcc.Checklist(
+                            id='type-select-all',
+                            options=[{'label': 'All', 'value': 'select_all'}],
+                            value=[],
+                            style={'display': 'inline-block', 'marginRight': '5px', 'fontSize': '9px'}
+                        ),
+                        html.Button('✕', id='type-clear-all', 
+                                   style={'fontSize': '8px', 'padding': '1px 4px', 'border': '1px solid #ccc', 
+                                         'borderRadius': '2px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer', 'lineHeight': '1'})
+                    ], style={'marginBottom': 2}),
+                    dcc.Dropdown(
+                        id='type-filter',
+                        options=type_options,
+                        multi=True,
+                        placeholder="Types",
+                        style={'fontSize': '11px', 'minHeight': '28px'}
+                    )
+                ], style={'width': '32%', 'display': 'inline-block', 'marginRight': '2%', 'minWidth': '150px'}),
+                
                 html.Div([
-                    dcc.Checklist(
-                        id='brand-select-all',
-                        options=[{'label': 'Select All', 'value': 'select_all'}],
-                        value=[],
-                        style={'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px'}
-                    ),
-                    html.Button('Clear All', id='brand-clear-all', 
-                               style={'fontSize': '10px', 'padding': '2px 6px', 'border': '1px solid #ccc', 
-                                     'borderRadius': '3px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer'})
-                ], style={'marginBottom': 5}),
-                dcc.Dropdown(
-                    id='brand-filter',
-                    options=brand_options,
-                    multi=True,
-                    placeholder="Select Brands",
-                    style={'marginBottom': 10}
-                )
-            ], style={'width': '19%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '150px'}),
-            
-            html.Div([
-                html.Label("IDG:", style={'fontWeight': 'bold', 'marginBottom': 5}),
+                    html.Label("Category (L3):", style={'fontSize': '11px', 'fontWeight': 'bold', 'marginBottom': 2}),
+                    html.Div([
+                        dcc.Checklist(
+                            id='category-select-all',
+                            options=[{'label': 'All', 'value': 'select_all'}],
+                            value=[],
+                            style={'display': 'inline-block', 'marginRight': '5px', 'fontSize': '9px'}
+                        ),
+                        html.Button('✕', id='category-clear-all', 
+                                   style={'fontSize': '8px', 'padding': '1px 4px', 'border': '1px solid #ccc', 
+                                         'borderRadius': '2px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer', 'lineHeight': '1'})
+                    ], style={'marginBottom': 2}),
+                    dcc.Dropdown(
+                        id='category-filter',
+                        options=category_options,
+                        multi=True,
+                        placeholder="Categories",
+                        style={'fontSize': '11px', 'minHeight': '28px'}
+                    )
+                ], style={'width': '32%', 'display': 'inline-block', 'marginRight': '2%', 'minWidth': '150px'}),
+                
                 html.Div([
-                    dcc.Checklist(
-                        id='idg-select-all',
-                        options=[{'label': 'Select All', 'value': 'select_all'}],
-                        value=[],
-                        style={'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px'}
-                    ),
-                    html.Button('Clear All', id='idg-clear-all', 
-                               style={'fontSize': '10px', 'padding': '2px 6px', 'border': '1px solid #ccc', 
-                                     'borderRadius': '3px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer'})
-                ], style={'marginBottom': 5}),
-                dcc.Dropdown(
-                    id='idg-filter',
-                    options=idg_options,
-                    multi=True,
-                    placeholder="Select IDG",
-                    style={'marginBottom': 10}
-                )
-            ], style={'width': '19%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '150px'}),
-            
-            html.Div([
-                html.Label("Type:", style={'fontWeight': 'bold', 'marginBottom': 5}),
-                html.Div([
-                    dcc.Checklist(
-                        id='type-select-all',
-                        options=[{'label': 'Select All', 'value': 'select_all'}],
-                        value=[],
-                        style={'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px'}
-                    ),
-                    html.Button('Clear All', id='type-clear-all', 
-                               style={'fontSize': '10px', 'padding': '2px 6px', 'border': '1px solid #ccc', 
-                                     'borderRadius': '3px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer'})
-                ], style={'marginBottom': 5}),
-                dcc.Dropdown(
-                    id='type-filter',
-                    options=type_options,
-                    multi=True,
-                    placeholder="Select Types",
-                    style={'marginBottom': 10}
-                )
-            ], style={'width': '19%', 'display': 'inline-block', 'minWidth': '150px'})
-        ], style={'display': 'flex', 'flexWrap': 'wrap', 'justifyContent': 'space-between', 'marginBottom': 20})
+                    html.Label("Item SKU:", style={'fontSize': '11px', 'fontWeight': 'bold', 'marginBottom': 2}),
+                    html.Div([
+                        dcc.Checklist(
+                            id='item-name-select-all',
+                            options=[{'label': 'All', 'value': 'select_all'}],
+                            value=[],
+                            style={'display': 'inline-block', 'marginRight': '5px', 'fontSize': '9px'}
+                        ),
+                        html.Button('✕', id='item-name-clear-all', 
+                                   style={'fontSize': '8px', 'padding': '1px 4px', 'border': '1px solid #ccc', 
+                                         'borderRadius': '2px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer', 'lineHeight': '1'})
+                    ], style={'marginBottom': 2}),
+                    dcc.Dropdown(
+                        id='item-name-filter',
+                        options=item_name_options,
+                        multi=True,
+                        placeholder="Item Names",
+                        style={'fontSize': '11px', 'minHeight': '28px'}
+                    )
+                ], style={'width': '32%', 'display': 'inline-block', 'minWidth': '150px'})
+            ], style={'display': 'flex', 'flexWrap': 'wrap', 'marginBottom': 5})
+        ])
         
-    ], style={'backgroundColor': '#f8f9fa', 'padding': '20px', 'borderRadius': '10px', 'marginBottom': 30}),
+    ], style={'backgroundColor': '#f8f9fa', 'padding': '12px', 'borderRadius': '8px', 'marginBottom': 20}),
       # Top Performers Section
     html.Div([
         html.H3(f"🏆 Top 10 Performers from {sheet_info[2][2]} (with data from all periods)", style={'textAlign': 'center', 'marginBottom': 20}),
@@ -803,6 +986,85 @@ app.layout = html.Div([
             page_size=10
         )
     ], style={'backgroundColor': '#ffffff', 'padding': '20px', 'borderRadius': '10px', 'marginBottom': 30, 'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}),
+    
+    # Top Brands Section
+    html.Div([
+        html.H3(f"🏅 Top 10 Brands from {sheet_info[2][2]} (with data from all periods)", style={'textAlign': 'center', 'marginBottom': 20}),
+        dash_table.DataTable(
+            id='top-brands-table',
+            style_cell={
+                'textAlign': 'left',
+                'padding': '10px',
+                'fontFamily': 'Arial, sans-serif',
+                'fontSize': '12px',
+                'overflow': 'hidden',
+                'textOverflow': 'ellipsis',
+                'maxWidth': 0,
+            },
+            style_cell_conditional=[
+                {'if': {'column_id': 'Rank'}, 'width': '5%', 'textAlign': 'center'},
+                {'if': {'column_id': 'Brand'}, 'width': '40%'},
+                {'if': {'column_id': f'{sheet_info[0][2]} Revenue'}, 'width': '12%'},
+                {'if': {'column_id': f'{sheet_info[1][2]} Revenue'}, 'width': '12%'},
+                {'if': {'column_id': f'{sheet_info[2][2]} Revenue'}, 'width': '12%'},
+                {'if': {'column_id': 'YoY Change %'}, 'width': '10%', 'textAlign': 'center'},
+                {'if': {'column_id': 'MoM Change %'}, 'width': '10%', 'textAlign': 'center'},
+            ],
+            tooltip_data=[],  # Will be populated in the callback
+            tooltip_duration=None,
+            style_header={
+                'backgroundColor': 'rgb(255, 193, 7)',
+                'color': 'black',
+                'fontWeight': 'bold',
+                'textAlign': 'center'
+            },
+            style_data_conditional=[
+                {
+                    'if': {'row_index': 0},
+                    'backgroundColor': '#fff3cd',
+                    'fontWeight': 'bold'
+                },
+                {
+                    'if': {'row_index': 1},
+                    'backgroundColor': '#f8f9fa'
+                },
+                {
+                    'if': {'row_index': 2},
+                    'backgroundColor': '#f8f9fa'
+                },
+                # Positive YoY changes in green
+                {
+                    'if': {'filter_query': '{YoY Change %} contains "+"'},
+                    'color': '#28a745',
+                    'fontWeight': 'bold'
+                },
+                # Negative YoY changes in red
+                {
+                    'if': {'filter_query': '{YoY Change %} contains "-"'},
+                    'color': '#dc3545',
+                    'fontWeight': 'bold'
+                },
+                # Positive MoM changes in green
+                {
+                    'if': {'filter_query': '{MoM Change %} contains "+"'},
+                    'color': '#28a745',
+                    'fontWeight': 'bold'
+                },
+                # Negative MoM changes in red
+                {
+                    'if': {'filter_query': '{MoM Change %} contains "-"'},
+                    'color': '#dc3545',
+                    'fontWeight': 'bold'
+                }
+            ],
+            style_data={
+                'backgroundColor': 'rgb(248, 248, 248)',
+                'border': '1px solid rgb(230, 230, 230)'
+            },
+            page_size=10
+        )
+    ], style={'backgroundColor': '#ffffff', 'padding': '20px', 'borderRadius': '10px', 'marginBottom': 30, 'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'}),
+
       # Tables Section - Responsive Layout
     html.Div([
         html.Div([            html.H4(f"{sheet_info[0][2]} - Product Analysis", style={'textAlign': 'center', 'marginBottom': 15}),
@@ -966,9 +1228,9 @@ def toggle_filter_exclusivity(invoice_days, weeks):
     # Disable invoice day filter if weeks are selected
     day_disabled = bool(weeks)
     
-    # Style for disabled select all checkboxes
-    disabled_style = {'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px', 'opacity': 0.5, 'pointerEvents': 'none'}
-    enabled_style = {'display': 'inline-block', 'marginRight': '10px', 'fontSize': '11px'}
+    # Style for disabled select all checkboxes - compact version
+    disabled_style = {'display': 'inline-block', 'marginRight': '5px', 'fontSize': '9px', 'opacity': 0.5, 'pointerEvents': 'none'}
+    enabled_style = {'display': 'inline-block', 'marginRight': '5px', 'fontSize': '9px'}
     
     day_select_all_style = disabled_style if day_disabled else enabled_style
     week_select_all_style = disabled_style if week_disabled else enabled_style
@@ -1056,6 +1318,38 @@ def select_all_types(select_all, current_values):
         # Clear all selections
         return []
 
+@app.callback(
+    Output('category-filter', 'value'),
+    [Input('category-select-all', 'value')],
+    [State('category-filter', 'value')]
+)
+def select_all_categories(select_all, current_values):
+    if select_all and 'select_all' in select_all:
+        # Select all categories
+        return [option['value'] for option in category_options]
+    elif not select_all and current_values:
+        # If "Select All" is unchecked and there are current values, keep them
+        return current_values
+    else:
+        # Clear all selections
+        return []
+
+@app.callback(
+    Output('item-name-filter', 'value'),
+    [Input('item-name-select-all', 'value')],
+    [State('item-name-filter', 'value')]
+)
+def select_all_item_names(select_all, current_values):
+    if select_all and 'select_all' in select_all:
+        # Select all item names
+        return [option['value'] for option in item_name_options]
+    elif not select_all and current_values:
+        # If "Select All" is unchecked and there are current values, keep them
+        return current_values
+    else:
+        # Clear all selections
+        return []
+
 # Callbacks for "Clear All" functionality
 @app.callback(
     Output('invoice-day-filter', 'value', allow_duplicate=True),
@@ -1107,6 +1401,26 @@ def clear_all_types(n_clicks):
         return []
     return []
 
+@app.callback(
+    Output('category-filter', 'value', allow_duplicate=True),
+    [Input('category-clear-all', 'n_clicks')],
+    prevent_initial_call=True
+)
+def clear_all_categories(n_clicks):
+    if n_clicks:
+        return []
+    return []
+
+@app.callback(
+    Output('item-name-filter', 'value', allow_duplicate=True),
+    [Input('item-name-clear-all', 'n_clicks')],
+    prevent_initial_call=True
+)
+def clear_all_item_names(n_clicks):
+    if n_clicks:
+        return []
+    return []
+
 # Auto-uncheck "Select All" when user manually deselects items
 @app.callback(
     Output('invoice-day-select-all', 'value'),
@@ -1153,6 +1467,24 @@ def uncheck_type_select_all(selected_values):
         return []  # Uncheck "Select All"
     return ['select_all']  # Keep "Select All" checked
 
+@app.callback(
+    Output('category-select-all', 'value'),
+    [Input('category-filter', 'value')]
+)
+def uncheck_category_select_all(selected_values):
+    if not selected_values or len(selected_values) < len(category_options):
+        return []  # Uncheck "Select All"
+    return ['select_all']  # Keep "Select All" checked
+
+@app.callback(
+    Output('item-name-select-all', 'value'),
+    [Input('item-name-filter', 'value')]
+)
+def uncheck_item_name_select_all(selected_values):
+    if not selected_values or len(selected_values) < len(item_name_options):
+        return []  # Uncheck "Select All"
+    return ['select_all']  # Keep "Select All" checked
+
 # Removed callback for updating week options - now automatically determined
 
 # Removed summary cards callback - section no longer needed
@@ -1168,10 +1500,12 @@ def uncheck_type_select_all(selected_values):
      Input('week-filter', 'value'),
      Input('brand-filter', 'value'),
      Input('idg-filter', 'value'),
-     Input('type-filter', 'value')]
+     Input('type-filter', 'value'),
+     Input('category-filter', 'value'),
+     Input('item-name-filter', 'value')]
 )
-def update_top_performers_table(invoice_days, weeks, brands, idgs, types):
-    top_performers_data = get_top_performers(dfs, invoice_days, weeks, brands, idgs, types)
+def update_top_performers_table(invoice_days, weeks, brands, idgs, types, categories, item_names):
+    top_performers_data = get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, categories, item_names)
     
     columns = [
         {'name': 'Rank', 'id': 'Rank', 'type': 'numeric'},
@@ -1193,6 +1527,40 @@ def update_top_performers_table(invoice_days, weeks, brands, idgs, types):
     
     return top_performers_data, columns, tooltip_data
 
+# Callback for updating top brands table
+@app.callback(
+    [Output('top-brands-table', 'data'),
+     Output('top-brands-table', 'columns'),
+     Output('top-brands-table', 'tooltip_data')],
+    [Input('invoice-day-filter', 'value'),
+     Input('week-filter', 'value'),
+     Input('brand-filter', 'value'),
+     Input('idg-filter', 'value'),
+     Input('type-filter', 'value'),
+     Input('category-filter', 'value'),
+     Input('item-name-filter', 'value')]
+)
+def update_top_brands_table(invoice_days, weeks, brands, idgs, types, categories, item_names):
+    top_brands_data = get_top_brands(dfs, invoice_days, weeks, brands, idgs, types, categories, item_names)
+    
+    columns = [
+        {'name': 'Rank', 'id': 'Rank', 'type': 'numeric'},
+        {'name': 'Brand', 'id': 'Brand', 'type': 'text'},
+        {'name': f'{sheet_info[0][2]} Revenue', 'id': f'{sheet_info[0][2]} Revenue', 'type': 'text'},
+        {'name': f'{sheet_info[1][2]} Revenue', 'id': f'{sheet_info[1][2]} Revenue', 'type': 'text'},
+        {'name': f'{sheet_info[2][2]} Revenue', 'id': f'{sheet_info[2][2]} Revenue', 'type': 'text'},
+        {'name': 'YoY Change %', 'id': 'YoY Change %', 'type': 'text'},
+        {'name': 'MoM Change %', 'id': 'MoM Change %', 'type': 'text'}
+    ]
+    
+    # Create tooltips for brand names (to show full name on hover)
+    tooltip_data = []
+    for row in top_brands_data:
+        tooltip_row = {'Brand': {'value': row['Brand'], 'type': 'markdown'}}
+        tooltip_data.append(tooltip_row)
+    
+    return top_brands_data, columns, tooltip_data
+
 # Callbacks for updating tables based on filters
 @app.callback(
     [Output('table-0', 'data'),
@@ -1205,18 +1573,20 @@ def update_top_performers_table(invoice_days, weeks, brands, idgs, types):
      Input('week-filter', 'value'),
      Input('brand-filter', 'value'),
      Input('idg-filter', 'value'),
-     Input('type-filter', 'value')]
+     Input('type-filter', 'value'),
+     Input('category-filter', 'value'),
+     Input('item-name-filter', 'value')]
 )
-def update_tables(invoice_days, weeks, brands, idgs, types):
+def update_tables(invoice_days, weeks, brands, idgs, types, categories, item_names):
     # Enforce mutual exclusivity: if both are selected, prioritize the one that was selected first
     if invoice_days and weeks:
         # Clear weeks if both are selected (prioritize invoice days)
         weeks = None
     
     # Filter and aggregate data for each table (always product view)
-    table_data_0 = filter_and_aggregate_data(dfs[0], invoice_days, weeks, brands, idgs, types)
-    table_data_1 = filter_and_aggregate_data(dfs[1], invoice_days, weeks, brands, idgs, types)
-    table_data_2 = filter_and_aggregate_data(dfs[2], invoice_days, weeks, brands, idgs, types)
+    table_data_0 = filter_and_aggregate_data(dfs[0], invoice_days, weeks, brands, idgs, types, categories, item_names)
+    table_data_1 = filter_and_aggregate_data(dfs[1], invoice_days, weeks, brands, idgs, types, categories, item_names)
+    table_data_2 = filter_and_aggregate_data(dfs[2], invoice_days, weeks, brands, idgs, types, categories, item_names)
     
     # Create tooltips for product descriptions (to show full description on hover)
     tooltip_data_0 = [{
@@ -1232,7 +1602,6 @@ def update_tables(invoice_days, weeks, brands, idgs, types):
     } for row in table_data_2]
     
     return table_data_0, table_data_1, table_data_2, tooltip_data_0, tooltip_data_1, tooltip_data_2
-
 # Run the app
 if __name__ == '__main__':
     app.run(debug=False, port=8050)

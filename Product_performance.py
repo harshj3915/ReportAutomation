@@ -310,6 +310,7 @@ all_brands = []
 all_idgs = []
 all_types = []
 all_categories = []
+all_families = []
 all_item_names = []
 
 for df in dfs:
@@ -323,6 +324,8 @@ for df in dfs:
     # Add new filters
     if 'Category Name (L3)' in df.columns:
         all_categories.extend(df['Category Name (L3)'].dropna().unique())
+    if 'Family Name (L2)' in df.columns:
+        all_families.extend(df['Family Name (L2)'].dropna().unique())
     if 'ItemName' in df.columns:
         all_item_names.extend(df['ItemName'].dropna().unique())
 
@@ -332,6 +335,7 @@ unique_brands = sorted(list(set(all_brands)))
 unique_idgs = sorted(list(set(all_idgs)))
 unique_types = sorted(list(set(all_types)))
 unique_categories = sorted(list(set(all_categories)))
+unique_families = sorted(list(set(all_families)))
 unique_item_names = sorted(list(set(all_item_names)))
 
 # Create options for dropdowns
@@ -340,6 +344,7 @@ brand_options = [{'label': brand, 'value': brand} for brand in unique_brands]
 idg_options = [{'label': idg, 'value': idg} for idg in unique_idgs]
 type_options = [{'label': type_val, 'value': type_val} for type_val in unique_types]
 category_options = [{'label': category, 'value': category} for category in unique_categories]
+family_options = [{'label': family, 'value': family} for family in unique_families]
 item_name_options = [{'label': item_name, 'value': item_name} for item_name in unique_item_names]
 
 # Week calculation function
@@ -443,7 +448,7 @@ def get_week_options(dfs, first_day_weekday, month_year):
 week_options = get_week_options(dfs, first_day_weekday, latest_month_year)
 
 # Function to filter and aggregate data
-def filter_and_aggregate_data(df, invoice_days, weeks, brands, idgs, types, categories=None, item_names=None):
+def filter_and_aggregate_data(df, invoice_days, weeks, brands, idgs, types, categories=None, families=None, item_names=None):
     filtered_df = df.copy()
     
     if invoice_days:
@@ -458,6 +463,8 @@ def filter_and_aggregate_data(df, invoice_days, weeks, brands, idgs, types, cate
         filtered_df = filtered_df[filtered_df['TYPE'].isin(types)]
     if categories and 'Category Name (L3)' in filtered_df.columns:
         filtered_df = filtered_df[filtered_df['Category Name (L3)'].isin(categories)]
+    if families and 'Family Name (L2)' in filtered_df.columns:
+        filtered_df = filtered_df[filtered_df['Family Name (L2)'].isin(families)]
     if item_names and 'ItemName' in filtered_df.columns:
         filtered_df = filtered_df[filtered_df['ItemName'].isin(item_names)]
     
@@ -480,7 +487,7 @@ def filter_and_aggregate_data(df, invoice_days, weeks, brands, idgs, types, cate
     return df_display.to_dict('records')
 
 # Function to calculate summary metrics
-def calculate_summary_metrics(dfs, invoice_days, weeks, brands, idgs, types, categories=None, item_names=None):
+def calculate_summary_metrics(dfs, invoice_days, weeks, brands, idgs, types, categories=None, families=None, item_names=None):
     summaries = []
     for i, df in enumerate(dfs):
         filtered_df = df.copy()
@@ -497,6 +504,8 @@ def calculate_summary_metrics(dfs, invoice_days, weeks, brands, idgs, types, cat
             filtered_df = filtered_df[filtered_df['TYPE'].isin(types)]
         if categories and 'Category Name (L3)' in filtered_df.columns:
             filtered_df = filtered_df[filtered_df['Category Name (L3)'].isin(categories)]
+        if families and 'Family Name (L2)' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['Family Name (L2)'].isin(families)]
         if item_names and 'ItemName' in filtered_df.columns:
             filtered_df = filtered_df[filtered_df['ItemName'].isin(item_names)]
         
@@ -570,7 +579,7 @@ def create_comparison_analysis(summaries):
     return comparison_data
 
 # Function to get top performers across all periods
-def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, categories=None, item_names=None, top_n=10):
+def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, categories=None, families=None, item_names=None, top_n=10):
     # Get top 10 products from the latest month (index 2)
     latest_df = dfs[2].copy()
     
@@ -587,6 +596,8 @@ def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, categories
         latest_df = latest_df[latest_df['TYPE'].isin(types)]
     if categories and 'Category Name (L3)' in latest_df.columns:
         latest_df = latest_df[latest_df['Category Name (L3)'].isin(categories)]
+    if families and 'Family Name (L2)' in latest_df.columns:
+        latest_df = latest_df[latest_df['Family Name (L2)'].isin(families)]
     if item_names and 'ItemName' in latest_df.columns:
         latest_df = latest_df[latest_df['ItemName'].isin(item_names)]
     
@@ -627,6 +638,8 @@ def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, categories
                 filtered_df = filtered_df[filtered_df['TYPE'].isin(types)]
             if categories and 'Category Name (L3)' in filtered_df.columns:
                 filtered_df = filtered_df[filtered_df['Category Name (L3)'].isin(categories)]
+            if families and 'Family Name (L2)' in filtered_df.columns:
+                filtered_df = filtered_df[filtered_df['Family Name (L2)'].isin(families)]
             if item_names and 'ItemName' in filtered_df.columns:
                 filtered_df = filtered_df[filtered_df['ItemName'].isin(item_names)]
             
@@ -687,7 +700,7 @@ def get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, categories
     return formatted_top_products
 
 # Function to get top performing brands across all periods
-def get_top_brands(dfs, invoice_days, weeks, brands, idgs, types, categories=None, item_names=None, top_n=10):
+def get_top_brands(dfs, invoice_days, weeks, brands, idgs, types, categories=None, families=None, item_names=None, top_n=10):
     # Get top 10 brands from the latest month (index 2)
     latest_df = dfs[2].copy()
     
@@ -704,6 +717,8 @@ def get_top_brands(dfs, invoice_days, weeks, brands, idgs, types, categories=Non
         latest_df = latest_df[latest_df['TYPE'].isin(types)]
     if categories and 'Category Name (L3)' in latest_df.columns:
         latest_df = latest_df[latest_df['Category Name (L3)'].isin(categories)]
+    if families and 'Family Name (L2)' in latest_df.columns:
+        latest_df = latest_df[latest_df['Family Name (L2)'].isin(families)]
     if item_names and 'ItemName' in latest_df.columns:
         latest_df = latest_df[latest_df['ItemName'].isin(item_names)]
     
@@ -744,6 +759,8 @@ def get_top_brands(dfs, invoice_days, weeks, brands, idgs, types, categories=Non
                 filtered_df = filtered_df[filtered_df['TYPE'].isin(types)]
             if categories and 'Category Name (L3)' in filtered_df.columns:
                 filtered_df = filtered_df[filtered_df['Category Name (L3)'].isin(categories)]
+            if families and 'Family Name (L2)' in filtered_df.columns:
+                filtered_df = filtered_df[filtered_df['Family Name (L2)'].isin(families)]
             if item_names and 'ItemName' in filtered_df.columns:
                 filtered_df = filtered_df[filtered_df['ItemName'].isin(item_names)]
             
@@ -969,7 +986,7 @@ app.layout = html.Div([
                         placeholder="Types",
                         style={'fontSize': '11px', 'minHeight': '28px'}
                     )
-                ], style={'width': '32%', 'display': 'inline-block', 'marginRight': '2%', 'minWidth': '150px'}),
+                ], style={'width': '24%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '120px'}),
                 
                 html.Div([
                     html.Label("Category (L3):", style={'fontSize': '11px', 'fontWeight': 'bold', 'marginBottom': 2}),
@@ -991,7 +1008,29 @@ app.layout = html.Div([
                         placeholder="Categories",
                         style={'fontSize': '11px', 'minHeight': '28px'}
                     )
-                ], style={'width': '32%', 'display': 'inline-block', 'marginRight': '2%', 'minWidth': '150px'}),
+                ], style={'width': '24%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '120px'}),
+                
+                html.Div([
+                    html.Label("Family (L2):", style={'fontSize': '11px', 'fontWeight': 'bold', 'marginBottom': 2}),
+                    html.Div([
+                        dcc.Checklist(
+                            id='family-select-all',
+                            options=[{'label': 'All', 'value': 'select_all'}],
+                            value=[],
+                            style={'display': 'inline-block', 'marginRight': '5px', 'fontSize': '9px'}
+                        ),
+                        html.Button('✕', id='family-clear-all', 
+                                   style={'fontSize': '8px', 'padding': '1px 4px', 'border': '1px solid #ccc', 
+                                         'borderRadius': '2px', 'backgroundColor': '#f8f9fa', 'cursor': 'pointer', 'lineHeight': '1'})
+                    ], style={'marginBottom': 2}),
+                    dcc.Dropdown(
+                        id='family-filter',
+                        options=family_options,
+                        multi=True,
+                        placeholder="Families",
+                        style={'fontSize': '11px', 'minHeight': '28px'}
+                    )
+                ], style={'width': '24%', 'display': 'inline-block', 'marginRight': '1%', 'minWidth': '120px'}),
                 
                 html.Div([
                     html.Label("Item SKU:", style={'fontSize': '11px', 'fontWeight': 'bold', 'marginBottom': 2}),
@@ -1013,7 +1052,7 @@ app.layout = html.Div([
                         placeholder="Item Names",
                         style={'fontSize': '11px', 'minHeight': '28px'}
                     )
-                ], style={'width': '32%', 'display': 'inline-block', 'minWidth': '150px'})
+                ], style={'width': '24%', 'display': 'inline-block', 'minWidth': '120px'})
             ], style={'display': 'flex', 'flexWrap': 'wrap', 'marginBottom': 5})
         ])
         
@@ -1461,6 +1500,22 @@ def select_all_categories(select_all, current_values):
         return []
 
 @app.callback(
+    Output('family-filter', 'value'),
+    [Input('family-select-all', 'value')],
+    [State('family-filter', 'value')]
+)
+def select_all_families(select_all, current_values):
+    if select_all and 'select_all' in select_all:
+        # Select all families
+        return [option['value'] for option in family_options]
+    elif not select_all and current_values:
+        # If "Select All" is unchecked and there are current values, keep them
+        return current_values
+    else:
+        # Clear all selections
+        return []
+
+@app.callback(
     Output('item-name-filter', 'value'),
     [Input('item-name-select-all', 'value')],
     [State('item-name-filter', 'value')]
@@ -1538,6 +1593,16 @@ def clear_all_categories(n_clicks):
     return []
 
 @app.callback(
+    Output('family-filter', 'value', allow_duplicate=True),
+    [Input('family-clear-all', 'n_clicks')],
+    prevent_initial_call=True
+)
+def clear_all_families(n_clicks):
+    if n_clicks:
+        return []
+    return []
+
+@app.callback(
     Output('item-name-filter', 'value', allow_duplicate=True),
     [Input('item-name-clear-all', 'n_clicks')],
     prevent_initial_call=True
@@ -1603,6 +1668,15 @@ def uncheck_category_select_all(selected_values):
     return ['select_all']  # Keep "Select All" checked
 
 @app.callback(
+    Output('family-select-all', 'value'),
+    [Input('family-filter', 'value')]
+)
+def uncheck_family_select_all(selected_values):
+    if not selected_values or len(selected_values) < len(family_options):
+        return []  # Uncheck "Select All"
+    return ['select_all']  # Keep "Select All" checked
+
+@app.callback(
     Output('item-name-select-all', 'value'),
     [Input('item-name-filter', 'value')]
 )
@@ -1628,10 +1702,11 @@ def uncheck_item_name_select_all(selected_values):
      Input('idg-filter', 'value'),
      Input('type-filter', 'value'),
      Input('category-filter', 'value'),
+     Input('family-filter', 'value'),
      Input('item-name-filter', 'value')]
 )
-def update_top_performers_table(invoice_days, weeks, brands, idgs, types, categories, item_names):
-    top_performers_data = get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, categories, item_names)
+def update_top_performers_table(invoice_days, weeks, brands, idgs, types, categories, families, item_names):
+    top_performers_data = get_top_performers(dfs, invoice_days, weeks, brands, idgs, types, categories, families, item_names)
     
     columns = [
         {'name': 'Rank', 'id': 'Rank', 'type': 'numeric'},
@@ -1664,10 +1739,11 @@ def update_top_performers_table(invoice_days, weeks, brands, idgs, types, catego
      Input('idg-filter', 'value'),
      Input('type-filter', 'value'),
      Input('category-filter', 'value'),
+     Input('family-filter', 'value'),
      Input('item-name-filter', 'value')]
 )
-def update_top_brands_table(invoice_days, weeks, brands, idgs, types, categories, item_names):
-    top_brands_data = get_top_brands(dfs, invoice_days, weeks, brands, idgs, types, categories, item_names)
+def update_top_brands_table(invoice_days, weeks, brands, idgs, types, categories, families, item_names):
+    top_brands_data = get_top_brands(dfs, invoice_days, weeks, brands, idgs, types, categories, families, item_names)
     
     columns = [
         {'name': 'Rank', 'id': 'Rank', 'type': 'numeric'},
@@ -1701,18 +1777,19 @@ def update_top_brands_table(invoice_days, weeks, brands, idgs, types, categories
      Input('idg-filter', 'value'),
      Input('type-filter', 'value'),
      Input('category-filter', 'value'),
+     Input('family-filter', 'value'),
      Input('item-name-filter', 'value')]
 )
-def update_tables(invoice_days, weeks, brands, idgs, types, categories, item_names):
+def update_tables(invoice_days, weeks, brands, idgs, types, categories, families, item_names):
     # Enforce mutual exclusivity: if both are selected, prioritize the one that was selected first
     if invoice_days and weeks:
         # Clear weeks if both are selected (prioritize invoice days)
         weeks = None
     
     # Filter and aggregate data for each table (always product view)
-    table_data_0 = filter_and_aggregate_data(dfs[0], invoice_days, weeks, brands, idgs, types, categories, item_names)
-    table_data_1 = filter_and_aggregate_data(dfs[1], invoice_days, weeks, brands, idgs, types, categories, item_names)
-    table_data_2 = filter_and_aggregate_data(dfs[2], invoice_days, weeks, brands, idgs, types, categories, item_names)
+    table_data_0 = filter_and_aggregate_data(dfs[0], invoice_days, weeks, brands, idgs, types, categories, families, item_names)
+    table_data_1 = filter_and_aggregate_data(dfs[1], invoice_days, weeks, brands, idgs, types, categories, families, item_names)
+    table_data_2 = filter_and_aggregate_data(dfs[2], invoice_days, weeks, brands, idgs, types, categories, families, item_names)
     
     # Create tooltips for product descriptions (to show full description on hover)
     tooltip_data_0 = [{
@@ -1730,7 +1807,7 @@ def update_tables(invoice_days, weeks, brands, idgs, types, categories, item_nam
     return table_data_0, table_data_1, table_data_2, tooltip_data_0, tooltip_data_1, tooltip_data_2
 
 # Function to get dynamic filter options based on current selections
-def get_dynamic_filter_options(dfs, invoice_days=None, weeks=None, brands=None, idgs=None, types=None, categories=None, item_names=None):
+def get_dynamic_filter_options(dfs, invoice_days=None, weeks=None, brands=None, idgs=None, types=None, categories=None, families=None, item_names=None):
     """
     Get available filter options based on current selections.
     Returns options with available ones highlighted and shown first.
@@ -1756,6 +1833,8 @@ def get_dynamic_filter_options(dfs, invoice_days=None, weeks=None, brands=None, 
             filtered_df = filtered_df[filtered_df['TYPE'].isin(types)]
         if filter_type != 'categories' and categories and 'Category Name (L3)' in filtered_df.columns:
             filtered_df = filtered_df[filtered_df['Category Name (L3)'].isin(categories)]
+        if filter_type != 'families' and families and 'Family Name (L2)' in filtered_df.columns:
+            filtered_df = filtered_df[filtered_df['Family Name (L2)'].isin(families)]
         if filter_type != 'item_names' and item_names and 'ItemName' in filtered_df.columns:
             filtered_df = filtered_df[filtered_df['ItemName'].isin(item_names)]
         
@@ -1768,6 +1847,7 @@ def get_dynamic_filter_options(dfs, invoice_days=None, weeks=None, brands=None, 
     idgs_df = get_available_values_for_filter('idgs')
     types_df = get_available_values_for_filter('types')
     categories_df = get_available_values_for_filter('categories')
+    families_df = get_available_values_for_filter('families')
     item_names_df = get_available_values_for_filter('item_names')
     
     # Get available unique values for each filter
@@ -1776,6 +1856,7 @@ def get_dynamic_filter_options(dfs, invoice_days=None, weeks=None, brands=None, 
     available_idgs = sorted(list(set(idgs_df['idg'].dropna().unique())))
     available_types = sorted(list(set(types_df['TYPE'].dropna().unique())))
     available_categories = sorted(list(set(categories_df['Category Name (L3)'].dropna().unique()))) if 'Category Name (L3)' in categories_df.columns else []
+    available_families = sorted(list(set(families_df['Family Name (L2)'].dropna().unique()))) if 'Family Name (L2)' in families_df.columns else []
     available_item_names = sorted(list(set(item_names_df['ItemName'].dropna().unique()))) if 'ItemName' in item_names_df.columns else []
     
     # Get available weeks
@@ -1828,6 +1909,7 @@ def get_dynamic_filter_options(dfs, invoice_days=None, weeks=None, brands=None, 
     all_idgs = sorted(list(set(combined_df['idg'].dropna().unique())))
     all_types = sorted(list(set(combined_df['TYPE'].dropna().unique())))
     all_categories = sorted(list(set(combined_df['Category Name (L3)'].dropna().unique()))) if 'Category Name (L3)' in combined_df.columns else []
+    all_families = sorted(list(set(combined_df['Family Name (L2)'].dropna().unique()))) if 'Family Name (L2)' in combined_df.columns else []
     all_item_names = sorted(list(set(combined_df['ItemName'].dropna().unique()))) if 'ItemName' in combined_df.columns else []
     all_weeks = sorted(list(set(combined_df['Week'].dropna().unique()))) if 'Week' in combined_df.columns else []
     
@@ -1838,6 +1920,7 @@ def get_dynamic_filter_options(dfs, invoice_days=None, weeks=None, brands=None, 
         'idg_options': create_styled_options(all_idgs, available_idgs),
         'type_options': create_styled_options(all_types, available_types),
         'category_options': create_styled_options(all_categories, available_categories),
+        'family_options': create_styled_options(all_families, available_families),
         'item_name_options': create_styled_options(all_item_names, available_item_names)
     }
 
@@ -1849,6 +1932,7 @@ def get_dynamic_filter_options(dfs, invoice_days=None, weeks=None, brands=None, 
      Output('idg-filter', 'options'),
      Output('type-filter', 'options'),
      Output('category-filter', 'options'),
+     Output('family-filter', 'options'),
      Output('item-name-filter', 'options')],
     [Input('invoice-day-filter', 'value'),
      Input('week-filter', 'value'),
@@ -1856,17 +1940,19 @@ def get_dynamic_filter_options(dfs, invoice_days=None, weeks=None, brands=None, 
      Input('idg-filter', 'value'),
      Input('type-filter', 'value'),
      Input('category-filter', 'value'),
+     Input('family-filter', 'value'),
      Input('item-name-filter', 'value')]
 )
-def update_filter_options(invoice_days, weeks, brands, idgs, types, categories, item_names):
+def update_filter_options(invoice_days, weeks, brands, idgs, types, categories, families, item_names):
     """
     Update all filter options dynamically based on current selections.
     Available options are shown first with green checkmarks, unavailable options are grayed out.
+    For each filter type, we exclude that filter type from the filtering logic to allow multiple selections.
     """
     try:
         # Get dynamic options based on current selections
         dynamic_options = get_dynamic_filter_options(
-            dfs, invoice_days, weeks, brands, idgs, types, categories, item_names
+            dfs, invoice_days, weeks, brands, idgs, types, categories, families, item_names
         )
         
         return (
@@ -1876,6 +1962,7 @@ def update_filter_options(invoice_days, weeks, brands, idgs, types, categories, 
             dynamic_options['idg_options'],
             dynamic_options['type_options'],
             dynamic_options['category_options'],
+            dynamic_options['family_options'],
             dynamic_options['item_name_options']
         )
     except Exception as e:
@@ -1888,6 +1975,7 @@ def update_filter_options(invoice_days, weeks, brands, idgs, types, categories, 
             idg_options,
             type_options,
             category_options,
+            family_options,
             item_name_options
         )
 # Run the app

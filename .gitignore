@@ -6,6 +6,7 @@ DSR/
 q/
 cache/
 flowcharts/
+Scraper/
 
 # Python cache
 __pycache__/
